@@ -468,7 +468,7 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4, method='stand
             # Add max detections to outputs
             output[image_i] = det_max if output[image_i] is None else torch.cat((output[image_i], det_max))
 
-    return output
+    return output,nms_indices
 
 def fast_nms(boxes, scores, iou_thres:float=0.5, top_k:int=200, second_threshold:bool=False, conf_thres:float=0.5):
     '''

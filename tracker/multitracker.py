@@ -234,23 +234,13 @@ class JDETracker(object):
         height = img0.shape[0]
         inp_height = im_blob.shape[2]
         inp_width = im_blob.shape[3]
-        c = np.array([width / 2., height / 2.], dtype=np.float32)
-        s = max(float(inp_width) / float(inp_height) * height, width) * 1.0
-        meta = {'c': c, 's': s,
-                'out_height': inp_height // self.opt.down_ratio,
-                'out_width': inp_width // self.opt.down_ratio}
 
         im_blob.requires_grad = True
         self.model.zero_grad()
-        output = self.model(im_blob)[-1]
-        hm = output['hm'].sigmoid()
-        wh = output['wh']
-        id_feature = output['id']
-        id_feature = F.normalize(id_feature, dim=1)
-
-        reg = output['reg'] if self.opt.reg_offset else None
-        dets_raw, inds = mot_decode(hm, wh, reg=reg, cat_spec_wh=self.opt.cat_spec_wh, K=self.opt.K)
-
+        output = self.model(im_blob)
+       
+        #dets_raw, inds = mot_decode(hm, wh, reg=reg, cat_spec_wh=self.opt.cat_spec_wh, K=self.opt.K)
+        
         dets = self.post_process(dets_raw.clone(), meta)
         dets = self.merge_outputs([dets])[1]
 
@@ -590,37 +580,52 @@ class JDETracker(object):
         height = img0.shape[0]
         inp_height = im_blob.shape[2]
         inp_width = im_blob.shape[3]
-        c = np.array([width / 2., height / 2.], dtype=np.float32)
-        s = max(float(inp_width) / float(inp_height) * height, width) * 1.0
-        meta = {'c': c, 's': s,
-                'out_height': inp_height // self.opt.down_ratio,
-                'out_width': inp_width // self.opt.down_ratio}
+
+        
+        # c = np.array([width / 2., height / 2.], dtype=np.float32)
+        # s = max(float(inp_width) / float(inp_height) * height, width) * 1.0
+        # meta = {'c': c, 's': s,
+        #         'out_height': inp_height // self.opt.down_ratio,
+        #         'out_width': inp_width // self.opt.down_ratio}
 
         ''' Step 1: Network forward, get detections & embeddings'''
         # with torch.no_grad():
         im_blob.requires_grad = True
         self.model.zero_grad()
-        output = self.model(im_blob)[-1]
-        hm = output['hm'].sigmoid()
-        wh = output['wh']
-        id_feature = output['id']
-        id_feature = F.normalize(id_feature, dim=1)
+        pred = self.model(im_blob)
+        id_feature=pred[:,6:]
+        pred_copy=copy.deepcopy(pred)
 
-        reg = output['reg'] if self.opt.reg_offset else None
-        dets_raw, inds = mot_decode(hm, wh, reg=reg, cat_spec_wh=self.opt.cat_spec_wh, K=self.opt.K)
+        Start_index=torch.arange(pred.shape[1])
+        pred = pred[pred[:, :, 4] > self.opt.conf_thres]
+        Start_index=Start_index[pred[0, :, 4] > self.opt.conf_thres]
+        if len(pred) > 0:
+            dets ,nms_indices= non_max_suppression(pred.unsqueeze(0), self.opt.conf_thres, self.opt.nms_thres)
+            dets=[0].cpu()
+            Start_index=Start_index[nms_indices]
+        
+
+
+        # hm = output['hm'].sigmoid()
+        # wh = output['wh']
+        # id_feature = output['id']
+        # id_feature = F.normalize(id_feature, dim=1)
+
+        # reg = output['reg'] if self.opt.reg_offset else None
+        # dets_raw, inds = mot_decode(hm, wh, reg=reg, cat_spec_wh=self.opt.cat_spec_wh, K=self.opt.K)
 
         id_features = []
         for i in range(3):
             for j in range(3):
-                id_feature_exp = _tranpose_and_gather_feat_expand(id_feature, inds, bias=(i - 1, j - 1)).squeeze(0)
+                id_feature_exp = _tranpose_and_gather_feat_expand(id_feature, Start_index, bias=(i - 1, j - 1)).squeeze(0)
                 id_features.append(id_feature_exp)
 
-        id_feature = _tranpose_and_gather_feat_expand(id_feature, inds)
+        id_feature = _tranpose_and_gather_feat_expand(id_feature, Start_index)
 
         id_feature = id_feature.squeeze(0)
 
-        dets = self.post_process(dets_raw.clone(), meta)
-        dets = self.merge_outputs([dets])[1]
+        # dets = self.post_process(dets_raw.clone(), meta)
+        # dets = self.merge_outputs([dets])[1]
 
         remain_inds = dets[:, 4] > self.opt.conf_thres
         dets = dets[remain_inds]
@@ -884,13 +889,17 @@ class JDETracker(object):
         with torch.no_grad():
             pred = self.model(im_blob)
         # pred is tensor of all the proposals (default number of proposals: 54264). Proposals have information associated with the bounding box and embeddings
+        Start_index=torch.arange(pred.shape[1])
         pred = pred[pred[:, :, 4] > self.opt.conf_thres]
+        Start_index=Start_index[pred[0, :, 4] > self.opt.conf_thres]
         # pred now has lesser number of proposals. Proposals rejected on basis of object confidence score
         td = {}
         td_ind = {}
         dbg = False
         if len(pred) > 0:
-            dets = non_max_suppression(pred.unsqueeze(0), self.opt.conf_thres, self.opt.nms_thres)[0].cpu()
+            dets ,nms_indices= non_max_suppression(pred.unsqueeze(0), self.opt.conf_thres, self.opt.nms_thres)
+            dets=[0].cpu()
+            Start_index=Start_index[nms_indices]
             # Final proposals are obtained in dets. Information of bounding box and embeddings also included
             # Next step changes the detection scales
             scale_coords(self.opt.img_size, dets[:, :4], img0.shape).round()
