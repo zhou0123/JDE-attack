@@ -73,13 +73,40 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
        frame_id : int
                   Sequence number of the last sequence
        '''
+    BaseTrack.init()
+    need_attack_ids = set([])
+    suc_attacked_ids = set([])
+    frequency_ids = {}
+    trackers_dic = {}
+    suc_frequency_ids = {}
 
+    tracked_stracks = []
+    lost_stracks = []
+    removed_stracks = []
+    ad_last_info = {}
+
+    track_id = {'track_id': 1}
+    sg_track_ids = {}
+    sg_attack_frames = {}
+    attack_frames = 0
     if save_dir:
         mkdir_if_missing(save_dir)
-    tracker = JDETracker(opt, frame_rate=frame_rate)
+    model = Darknet(opt.cfg, nID=14455)
+    model.load_state_dict(torch.load(opt.weights, map_location='cpu')['model'], strict=False)
+    tracker = JDETracker(opt, frame_rate=frame_rate,model=model)
     timer = Timer()
     results = []
     frame_id = 0
+    results_att = []
+    results_att_sg = {}
+    l2_distance = []
+    l2_distance_sg = {}
+    root_r = opt.data_dir
+    root_r += '/' if root_r[-1] != '/' else ''
+    root = opt.output_dir
+    root += '/' if root[-1] != '/' else ''
+    imgRoot = os.path.join(root, 'image')
+    noiseRoot = os.path.join(root, 'noise')
     for path, img, img0 in dataloader:
         if frame_id % 20 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1./max(1e-5, timer.average_time)))
@@ -87,6 +114,97 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
         # run tracking
         timer.tic()
         blob = torch.from_numpy(img).cuda().unsqueeze(0)
+        if opt.attack:
+            if opt.attack == 'single' and opt.attack_id == -1 and opt.method in ['ids', 'det']:
+                online_targets_ori = tracker.update(blob, img0, name=path.replace(root_r, ''), track_id=track_id)
+                dets = []
+                ids = []
+                for strack in online_targets_ori:
+                    if strack.track_id not in frequency_ids:
+                        frequency_ids[strack.track_id] = 0
+                    frequency_ids[strack.track_id] += 1
+                    if frequency_ids[strack.track_id] > tracker.FRAME_THR:
+                        ids.append(strack.track_id)
+                        dets.append(strack.curr_tlbr.reshape(1, -1))
+                if len(ids) > 0:
+                    dets = np.concatenate(dets).astype(np.float64)
+                    ious = bbox_ious(dets, dets)
+                    ious[range(len(dets)), range(len(dets))] = 0
+                    for i in range(len(dets)):
+                        for j in range(len(dets)):
+                            if ious[i, j] > tracker.ATTACK_IOU_THR:
+                                need_attack_ids.add(ids[i])
+
+                for attack_id in need_attack_ids:
+                    if attack_id in suc_attacked_ids:
+                        continue
+                    if attack_id not in trackers_dic:
+                        trackers_dic[attack_id] = JDETracker(
+                            opt,
+                            frame_rate=frame_rate,
+                            tracked_stracks=tracked_stracks,
+                            lost_stracks=lost_stracks,
+                            removed_stracks=removed_stracks,
+                            frame_id=frame_id,
+                            ad_last_info=ad_last_info,
+                            model=model
+                        )
+                        sg_track_ids[attack_id] = {
+                            'origin': {'track_id': track_id['track_id']},
+                            'attack': {'track_id': track_id['track_id']}
+                        }
+                    if opt.method == 'ids':
+                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg(
+                            blob,
+                            img0,
+                            name=path.replace(root_r, ''),
+                            attack_id=attack_id,
+                            track_id=sg_track_ids[attack_id]
+                        )
+                    else:
+                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg_det(
+                            blob,
+                            img0,
+                            name=path.replace(root_r, ''),
+                            attack_id=attack_id,
+                            track_id=sg_track_ids[attack_id]
+                        )
+                    sg_track_outputs[attack_id] = {}
+                    sg_track_outputs[attack_id]['output_stracks_att'] = output_stracks_att
+                    sg_track_outputs[attack_id]['adImg'] = adImg
+                    sg_track_outputs[attack_id]['noise'] = noise
+                    if suc in [1, 2]:
+                        if attack_id not in sg_attack_frames:
+                            sg_attack_frames[attack_id] = 0
+                        sg_attack_frames[attack_id] += 1
+                    if attack_id not in results_att_sg:
+                        results_att_sg[attack_id] = []
+                    if attack_id not in l2_distance_sg:
+                        l2_distance_sg[attack_id] = []
+                    if l2_dis is not None:
+                        l2_distance_sg[attack_id].append(l2_dis)
+                    if suc == 1:
+                        suc_frequency_ids[attack_id] = 0
+                    elif suc == 2:
+                        suc_frequency_ids.pop(attack_id, None)
+                    elif suc == 3:
+                        if attack_id not in suc_frequency_ids:
+                            suc_frequency_ids[attack_id] = 0
+                        suc_frequency_ids[attack_id] += 1
+                    elif attack_id in suc_frequency_ids:
+                        suc_frequency_ids[attack_id] += 1
+                        if suc_frequency_ids[attack_id] > 20:
+                            suc_attacked_ids.add(attack_id)
+                            del trackers_dic[attack_id]
+                            torch.cuda.empty_cache()
+
+                tracked_stracks = copy.deepcopy(tracker.tracked_stracks)
+                lost_stracks = copy.deepcopy(tracker.lost_stracks)
+                removed_stracks = copy.deepcopy(tracker.removed_stracks)
+                ad_last_info = copy.deepcopy(tracker.ad_last_info)
+
+
+
         online_targets = tracker.update(blob, img0)
         online_tlwhs = []
         online_ids = []

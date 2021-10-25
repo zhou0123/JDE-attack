@@ -158,25 +158,64 @@ class STrack(BaseTrack):
 
 
 class JDETracker(object):
-    def __init__(self, opt, frame_rate=30):
+    def __init__(self, opt, frame_rate=30,\
+    tracked_stracks=[],
+    lost_stracks=[],
+    removed_stracks=[],
+    frame_id=0,
+    ad_last_info={},
+    model=None):
         self.opt = opt
-        self.model = Darknet(opt.cfg, nID=14455)
-        # load_darknet_weights(self.model, opt.weights)
-        self.model.load_state_dict(torch.load(opt.weights, map_location='cpu')['model'], strict=False)
+        if model:
+            self.model=model
+        else:
+            self.model = Darknet(opt.cfg, nID=14455)
+            # load_darknet_weights(self.model, opt.weights)
+            self.model.load_state_dict(torch.load(opt.weights, map_location='cpu')['model'], strict=False)
         self.model.cuda().eval()
 
-        self.tracked_stracks = []  # type: list[STrack]
-        self.lost_stracks = []  # type: list[STrack]
-        self.removed_stracks = []  # type: list[STrack]
+        # self.tracked_stracks = []  # type: list[STrack]
+        # self.lost_stracks = []  # type: list[STrack]
+        # self.removed_stracks = []  # type: list[STrack]
+        self.tracked_stracks = copy.deepcopy(tracked_stracks)  # type: list[STrack]
+        self.lost_stracks = copy.deepcopy(lost_stracks)  # type: list[STrack]
+        self.removed_stracks = copy.deepcopy(removed_stracks)  # type: list[STrack]
 
-        self.frame_id = 0
+        self.tracked_stracks_ad = copy.deepcopy(tracked_stracks)  # type: list[STrack]
+        self.lost_stracks_ad = copy.deepcopy(lost_stracks)  # type: list[STrack]
+        self.removed_stracks_ad = copy.deepcopy(removed_stracks)  # type: list[STrack]
+
+        self.tracked_stracks_ = copy.deepcopy(tracked_stracks)  # type: list[STrack]
+        self.lost_stracks_ = copy.deepcopy(lost_stracks)  # type: list[STrack]
+        self.removed_stracks_ = copy.deepcopy(removed_stracks)  # type: list[STrack]
+
+        self.frame_id = frame_id
+        self.frame_id_=frame_id
+        self.frame_id_ad=frame_id
+
         self.det_thresh = opt.conf_thres
         self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
         self.max_time_lost = self.buffer_size
+        self.max_per_image = 128
 
+        # self.kalman_filter = KalmanFilter()
         self.kalman_filter = KalmanFilter()
+        self.kalman_filter_ad = KalmanFilter()
+        self.kalman_filter_ = KalmanFilter()
+        self.attack_sg = True
+        self.attack_mt = True
+        self.attacked_ids = set([])
+        self.low_iou_ids = set([])
+        self.ATTACK_IOU_THR = 0.3
+        self.attack_iou_thr = self.ATTACK_IOU_THR
+        self.ad_last_info = copy.deepcopy(ad_last_info)
+        self.FRAME_THR = 10
 
-    def update(self, im_blob, img0):
+        self.temp_i = 0
+        self.multiple_ori_ids = {}
+        self.multiple_att_ids = {}
+        self.multiple_ori2att = {}
+    def update(self, im_blob, img0, **kwargs):
         """
         Processes the image frame and finds bounding box(detections).
 
@@ -198,6 +237,7 @@ class JDETracker(object):
         """
 
         self.frame_id += 1
+        self_track_id=kwargs.het('track_id',None)
         activated_starcks = []      # for storing active tracks, for the current frame
         refind_stracks = []         # Lost Tracks whose detections are obtained in the current frame
         lost_stracks = []           # The tracks which are not obtained in the current frame but are not removed.(Lost for some time lesser than the threshold for removing)
@@ -210,6 +250,9 @@ class JDETracker(object):
         # pred is tensor of all the proposals (default number of proposals: 54264). Proposals have information associated with the bounding box and embeddings
         pred = pred[pred[:, :, 4] > self.opt.conf_thres]
         # pred now has lesser number of proposals. Proposals rejected on basis of object confidence score
+        td = {}
+        td_ind = {}
+        dbg = False
         if len(pred) > 0:
             dets = non_max_suppression(pred.unsqueeze(0), self.opt.conf_thres, self.opt.nms_thres)[0].cpu()
             # Final proposals are obtained in dets. Information of bounding box and embeddings also included
@@ -256,6 +299,12 @@ class JDETracker(object):
             # itracked is the id of the track and idet is the detection
             track = strack_pool[itracked]
             det = detections[idet]
+            if dbg:
+                td[track.track_id] = det.tlwh
+                td_ind[track.track_id] = dets_index[idet]
+                if track.track_id not in td_:
+                    td_[track.track_id] = [None for i in range(50)]
+                td_[track.track_id][self.frame_id] = (track.smooth_feat, det.smooth_feat)
             if track.state == TrackState.Tracked:
                 # If the track is active, add the detection to the track
                 track.update(detections[idet], self.frame_id)
@@ -280,6 +329,12 @@ class JDETracker(object):
         for itracked, idet in matches:
             track = r_tracked_stracks[itracked]
             det = detections[idet]
+            if dbg:
+                td[track.track_id] = det.tlwh
+                td_ind[track.track_id] = dets_index[idet]
+                if track.track_id not in td_:
+                    td_[track.track_id] = [None for i in range(50)]
+                td_[track.track_id][self.frame_id] = (track.smooth_feat, det.smooth_feat)
             if track.state == TrackState.Tracked:
                 track.update(det, self.frame_id)
                 activated_starcks.append(track)
@@ -300,6 +355,13 @@ class JDETracker(object):
         dists = matching.iou_distance(unconfirmed, detections)
         matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
         for itracked, idet in matches:
+            if dbg:
+                td[unconfirmed[itracked].track_id] = detections[idet].tlwh
+                td_ind[unconfirmed[itracked].track_id] = dets_index[idet]
+                if unconfirmed[itracked].track_id not in td_:
+                    td_[unconfirmed[itracked].track_id] = [None for i in range(50)]
+                td_[unconfirmed[itracked].track_id][self.frame_id] = (
+                unconfirmed[itracked].smooth_feat, detections[idet].smooth_feat)
             unconfirmed[itracked].update(detections[idet], self.frame_id)
             activated_starcks.append(unconfirmed[itracked])
 
@@ -339,6 +401,28 @@ class JDETracker(object):
 
         # get scores of lost tracks
         output_stracks = [track for track in self.tracked_stracks if track.is_activated]
+        if dbg:
+            f_1 = []
+            f_2 = []
+            fi = 1
+            fj = 2
+
+            if self.frame_id == 25:
+                for i in range(20):
+                    if td_[fi][i] is None or td_[fj][i] is None:
+                        continue
+                    f_1.append(td_[fi][i][0] @ td_[fi][i][1])
+                    f_2.append(td_[fi][i][0] @ td_[fj][i][1])
+                f1 = sum(f_1) / len(f_1)
+                f2 = sum(f_2) / len(f_2)
+
+                sc = 0
+                for i in range(len(f_1)):
+                    if f_2[i] > f_1[i]:
+                        sc += 1
+                print(f'f1:{f1}, f2:{f2}, sc:{sc}, len:{len(f_1)}')
+                import pdb;
+                pdb.set_trace()
 
         logger.debug('===========Frame {}=========='.format(self.frame_id))
         logger.debug('Activated: {}'.format([track.track_id for track in activated_starcks]))
@@ -346,6 +430,22 @@ class JDETracker(object):
         logger.debug('Lost: {}'.format([track.track_id for track in lost_stracks]))
         logger.debug('Removed: {}'.format([track.track_id for track in removed_stracks]))
         # print('Final {} s'.format(t5-t4))
+        unconfirmed = []
+        tracked_stracks = []  # type: list[STrack]
+        for track in self.tracked_stracks:
+            if not track.is_activated:
+                unconfirmed.append(track)
+            else:
+                tracked_stracks.append(track)
+
+        ''' Step 2: First association, with embedding'''
+        strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
+
+        self.ad_last_info = {
+            'last_strack_pool': copy.deepcopy(strack_pool),
+            'last_unconfirmed': copy.deepcopy(unconfirmed),
+            'kalman_filter': copy.deepcopy(self.kalman_filter_)
+        }
         return output_stracks
 
 def joint_stracks(tlista, tlistb):
