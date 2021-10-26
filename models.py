@@ -278,6 +278,15 @@ class Darknet(nn.Module):
             return sum(output), torch.Tensor(list(self.losses.values())).cuda()
         elif self.test_emb:
             return torch.cat(output, 0)
+        for i in range(len(output)):
+
+            feature_id=output[i][:,:,6:]
+            dets=output[i][:,:,:4]
+            h=(dets[:,:,3]-dets[:,:,1]).unsqueeze(2)
+            w=(dets[:,:,2]-dets[:,:,0]).unsqueeze(2)
+            wh=torch.cat((w,h),dim=-1)
+            print(wh.shape)
+            heatmap=outputs[i][:,:,4]
         return torch.cat(output, 1)
 
 def shift_tensor_vertically(t, delta):

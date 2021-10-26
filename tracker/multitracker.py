@@ -383,6 +383,15 @@ class JDETracker(object):
                 ae_target_id = track.track_id
 
         return id_features_, output, ae_attack_id, ae_target_id, hm_index
+    def get_det_center(self,indexs):
+
+        if indexs <=41344:
+            return indexs,136*2
+        if indexs>41344 and index<=10336+41344:
+            return indexs- 41344,136
+        if indexs > 41344+10336 :
+            return indexs-41344-10336,68
+
     def ifgsm_adam_sg(
             self,
             im_blob,
@@ -472,6 +481,7 @@ class JDETracker(object):
             # loss -= mse(im_blob, im_blob_ori)
 
             if i in [10, 20, 30, 35, 40, 45, 50, 55]:
+                    
                 attack_det_center = torch.stack([hm_index[attack_ind] % W, hm_index[attack_ind] // W]).float()
                 target_det_center = torch.stack([hm_index[target_ind] % W, hm_index[target_ind] // W]).float()
                 if last_target_det_center is not None:
