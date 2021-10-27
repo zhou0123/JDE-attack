@@ -660,7 +660,6 @@ class JDETracker(object):
         output_stracks_att = self.update(im_blob, img0, track_id=self_track_id_att)
 
         return output_stracks_ori, output_stracks_att, adImg, noise, l2_dis, suc
-    def Filter_(self,):
 
 
     def ifgsm_adam_sg(
@@ -681,7 +680,7 @@ class JDETracker(object):
             beta_1=0.9,
             beta_2=0.999
     ):
-
+        outputs=outputs_ori
         noise = torch.zeros_like(im_blob)
         im_blob_ori = im_blob.clone().data
         last_ad_id_features = [None for _ in range(len(id_features[0]))]
@@ -701,11 +700,161 @@ class JDETracker(object):
         last_target_det_center = torch.round(
             (last_target_det[:2] + last_target_det[2:]) / 2) if last_target_det is not None else None
 
-
-
+        hm_index = inds[0][remain_inds]
+        hm_index_ori = copy.deepcopy(hm_index)
+        for i in range(len(id_features)):
+            id_features[i] = id_features[i][[attack_ind, target_ind]]
         
+        adam_m = 0
+        adam_v = 0
+
+        i = 0
+        j = -1
+        suc = True
+        ori_hm_index = hm_index[[attack_ind, target_ind]].clone()
+        ori_hm_index_re = hm_index[[target_ind, attack_ind]].clone()
+        att_hm_index = None
+        noise_0 = None
+        i_0 = None
+        noise_1 = None
+        i_1 = None
+
+        while True:
+            i += 1
+            loss = 0
+            loss_feat = 0
+            for id_i, id_feature in enumerate(id_features):
+                if last_ad_id_features[attack_ind] is not None:
+                    last_ad_id_feature = torch.from_numpy(last_ad_id_features[attack_ind]).unsqueeze(0).cuda()
+                    sim_1 = torch.mm(id_feature[0:0 + 1], last_ad_id_feature.T).squeeze()
+                    sim_2 = torch.mm(id_feature[1:1 + 1], last_ad_id_feature.T).squeeze()
+                    loss_feat += sim_2 - sim_1
+                if last_ad_id_features[target_ind] is not None:
+                    last_ad_id_feature = torch.from_numpy(last_ad_id_features[target_ind]).unsqueeze(0).cuda()
+                    sim_1 = torch.mm(id_feature[1:1 + 1], last_ad_id_feature.T).squeeze()
+                    sim_2 = torch.mm(id_feature[0:0 + 1], last_ad_id_feature.T).squeeze()
+                    loss_feat += sim_2 - sim_1
+                if last_ad_id_features[attack_ind] is None and last_ad_id_features[target_ind] is None:
+                    loss_feat += torch.mm(id_feature[0:0 + 1], id_feature[1:1 + 1].T).squeeze()
+            loss += loss_feat / len(id_features)
+            # loss -= mse(im_blob, im_blob_ori)
+
+            if i in [10, 20, 30, 35, 40, 45, 50, 55]:
+                Index_a,W_a=Filter_(hm_index[attack_ind])
+                Index_t,W_t=Filter_(hm_index[target_ind])
+                attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
+                target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
+                if last_target_det_center is not None:
+                    attack_center_delta = attack_det_center - last_target_det_center
+                    if torch.max(torch.abs(attack_center_delta)) > 1:
+                        attack_center_delta /= torch.max(torch.abs(attack_center_delta))
+                        attack_det_center = torch.round(attack_det_center - attack_center_delta).int()
+                        hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a
+                if last_attack_det_center is not None:
+                    target_center_delta = target_det_center - last_attack_det_center
+                    if torch.max(torch.abs(target_center_delta)) > 1:
+                        target_center_delta /= torch.max(torch.abs(target_center_delta))
+                        target_det_center = torch.round(target_det_center - target_center_delta).int()
+                        hm_index[target_ind] = target_det_center[0] + target_det_center[1] * W_t
+                att_hm_index = hm_index[[attack_ind, target_ind]].clone()
 
 
+                if att_hm_index is not None:
+                # loss += ((1 - outputs['hm'].view(-1).sigmoid()[att_hm_index]) ** 2 *
+                #         torch.log(outputs['hm'].view(-1).sigmoid()[att_hm_index])).mean()
+                # loss += ((outputs['hm'].view(-1).sigmoid()[ori_hm_index]) ** 2 *
+                #          torch.log(1 - outputs['hm'].view(-1).sigmoid()[ori_hm_index])).mean()
+
+                    n_att_hm_index = []
+                    n_ori_hm_index_re = []
+                    for hm_ind in range(len(att_hm_index)):
+                        for n_i in range(3):
+                            for n_j in range(3):
+                                att_hm_ind = att_hm_index[hm_ind].item()
+                                att_hm_ind = att_hm_ind + (n_i - 1) * W + (n_j - 1)
+                                att_hm_ind = max(0, min(H*W-1, att_hm_ind))
+                                n_att_hm_index.append(att_hm_ind)
+                                ori_hm_ind = ori_hm_index_re[hm_ind].item()
+                                ori_hm_ind = ori_hm_ind + (n_i - 1) * W + (n_j - 1)
+                                ori_hm_ind = max(0, min(H * W - 1, ori_hm_ind))
+                                n_ori_hm_index_re.append(ori_hm_ind)
+                    loss += ((1 - outputs[0,:,4].sigmoid()[n_att_hm_index]) ** 2 *
+                         torch.log(outputs[0,:,4].sigmoid()[n_att_hm_index])).mean()
+                    loss += ((outputs[0,:,4].sigmoid()[n_ori_hm_index_re]) ** 2 *
+                            torch.log(1 - outputs[0,:,4].sigmoid()[n_ori_hm_index_re])).mean()
+
+
+                loss.backward()
+
+                grad = im_blob.grad
+                grad /= (grad ** 2).sum().sqrt() + 1e-8
+
+                noise += grad
+
+                im_blob = torch.clip(im_blob_ori + noise, min=0, max=1).data
+                id_features_, outputs_, ae_attack_id, ae_target_id, hm_index_ = self.forwardFeatureSg(
+                im_blob,
+                img0,
+                dets,
+                inds,
+                remain_inds,
+                attack_id,
+                attack_ind,
+                target_id,
+                target_ind,
+                last_info
+            )
+            if id_features_ is not None:
+                id_features = id_features_
+            if outputs_ is not None:
+                outputs = outputs_
+            # if hm_index_ is not None:
+            #     hm_index = hm_index_
+            if ae_attack_id != attack_id and ae_attack_id is not None:
+                if ae_attack_id == target_id and ae_target_id == attack_id:
+                    break
+                elif ae_attack_id == target_id or ae_target_id == attack_id:
+                    noise_0 = noise.clone()
+                    i_0 = i
+                else:
+                    noise_1 = noise.clone()
+                    i_1 = i
+
+            # if ae_attack_id == target_id and ae_target_id == attack_id:
+            #     break
+
+            if i > 60:
+                if noise_0 is not None:
+                    return noise_0, i_0, suc
+                elif noise_1 is not None:
+                    return noise_1, i_1, suc
+                suc = False
+                break
+        return noise, i, suc
+    def forwardFeatureSg(
+        self, 
+        im_blob, 
+        img0, 
+        dets_, 
+        inds_, 
+        remain_inds_, 
+        attack_id, 
+        attack_ind, 
+        target_id, 
+        target_ind,
+        last_info
+    ):
+
+
+
+def Filter_(index):
+
+    if indexs <=2584:
+        return indexs,136*2
+    if indexs>2584 and indexs<=10336+2584:
+        return indexs- 2584,136
+    if indexs > 2584+10336 :
+        return indexs-2584-10336,136/2
 
 
 
