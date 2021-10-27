@@ -8,9 +8,11 @@ from tracker import matching
 from .basetrack import BaseTrack, TrackState
 import copy
 
-from tool.model_utils import  _tranpose_and_gather_feat, _tranpose_and_gather_feat_expand
+from tool.models_utils import  _tranpose_and_gather_feat, _tranpose_and_gather_feat_expand
 
 class STrack(BaseTrack):
+    shared_kalman = KalmanFilter()
+    shared_kalman_ = KalmanFilter()
 
     def __init__(self, tlwh, score, temp_feat, buffer_size=30):
 
@@ -22,19 +24,34 @@ class STrack(BaseTrack):
 
         self.score = score
         self.tracklet_len = 0
+        self.exist_len = 1
 
         self.smooth_feat = None
+        self.smooth_feat_ad = None
+
         self.update_features(temp_feat)
         self.features = deque([], maxlen=buffer_size)
         self.alpha = 0.9
-    
+
+        self.curr_tlbr = self.tlwh_to_tlbr(self._tlwh)
+
+        self.det_dict = {}
+
+    def update_features_ad(self, feat):
+        feat /= np.linalg.norm(feat)
+        if self.smooth_feat_ad is None:
+            self.smooth_feat_ad = feat
+        else:
+            self.smooth_feat_ad = self.alpha * self.smooth_feat_ad + (1 - self.alpha) * feat
+        self.smooth_feat_ad /= np.linalg.norm(self.smooth_feat_ad)
+
     def update_features(self, feat):
         feat /= np.linalg.norm(feat)
-        self.curr_feat = feat 
+        self.curr_feat = feat
         if self.smooth_feat is None:
             self.smooth_feat = feat
         else:
-            self.smooth_feat = self.alpha *self.smooth_feat + (1-self.alpha) * feat
+            self.smooth_feat = self.alpha * self.smooth_feat + (1 - self.alpha) * feat
         self.features.append(feat)
         self.smooth_feat /= np.linalg.norm(self.smooth_feat)
 
@@ -43,45 +60,94 @@ class STrack(BaseTrack):
         if self.state != TrackState.Tracked:
             mean_state[7] = 0
         self.mean, self.covariance = self.kalman_filter.predict(mean_state, self.covariance)
-        
+
     @staticmethod
-    def multi_predict(stracks, kalman_filter):
+    def multi_predict(stracks):
         if len(stracks) > 0:
             multi_mean = np.asarray([st.mean.copy() for st in stracks])
             multi_covariance = np.asarray([st.covariance for st in stracks])
             for i, st in enumerate(stracks):
                 if st.state != TrackState.Tracked:
                     multi_mean[i][7] = 0
-#            multi_mean, multi_covariance = STrack.kalman_filter.multi_predict(multi_mean, multi_covariance)
-            multi_mean, multi_covariance = kalman_filter.multi_predict(multi_mean, multi_covariance)
+            multi_mean, multi_covariance = STrack.shared_kalman.multi_predict(multi_mean, multi_covariance)
             for i, (mean, cov) in enumerate(zip(multi_mean, multi_covariance)):
                 stracks[i].mean = mean
                 stracks[i].covariance = cov
 
-    def activate(self, kalman_filter, frame_id):
+    @staticmethod
+    def multi_predict_(stracks):
+        if len(stracks) > 0:
+            multi_mean = np.asarray([st.mean.copy() for st in stracks])
+            multi_covariance = np.asarray([st.covariance for st in stracks])
+            for i, st in enumerate(stracks):
+                if st.state != TrackState.Tracked:
+                    multi_mean[i][7] = 0
+            multi_mean, multi_covariance = STrack.shared_kalman_.multi_predict(multi_mean, multi_covariance)
+            for i, (mean, cov) in enumerate(zip(multi_mean, multi_covariance)):
+                stracks[i].mean = mean
+                stracks[i].covariance = cov
+
+    def activate(self, kalman_filter, frame_id, track_id=None):
         """Start a new tracklet"""
         self.kalman_filter = kalman_filter
-        self.track_id = self.next_id()
+        if track_id:
+            self.track_id = track_id['track_id']
+            track_id['track_id'] += 1
+        else:
+            self.track_id = self.next_id()
         self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
 
         self.tracklet_len = 0
         self.state = TrackState.Tracked
-        #self.is_activated = True
+        self.is_activated = True
+        self.frame_id = frame_id
+        self.start_frame = frame_id
+
+    def activate_(self, kalman_filter, frame_id, track_id=None):
+        """Start a new tracklet"""
+        self.kalman_filter = kalman_filter
+        if track_id:
+            self.track_id = track_id['track_id']
+            track_id['track_id'] += 1
+        else:
+            self.track_id = self.next_id_()
+        self.mean, self.covariance = self.kalman_filter.initiate(self.tlwh_to_xyah(self._tlwh))
+
+        self.tracklet_len = 0
+        self.state = TrackState.Tracked
+        self.is_activated = True
         self.frame_id = frame_id
         self.start_frame = frame_id
 
     def re_activate(self, new_track, frame_id, new_id=False):
+        self.curr_tlbr = self.tlwh_to_tlbr(new_track.tlwh)
         self.mean, self.covariance = self.kalman_filter.update(
             self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
         )
 
         self.update_features(new_track.curr_feat)
         self.tracklet_len = 0
+        self.exist_len += 1
         self.state = TrackState.Tracked
         self.is_activated = True
         self.frame_id = frame_id
         if new_id:
             self.track_id = self.next_id()
+
+    def re_activate_(self, new_track, frame_id, new_id=False):
+        self.curr_tlbr = self.tlwh_to_tlbr(new_track.tlwh)
+        self.mean, self.covariance = self.kalman_filter.update(
+            self.mean, self.covariance, self.tlwh_to_xyah(new_track.tlwh)
+        )
+
+        self.update_features(new_track.curr_feat)
+        self.tracklet_len = 0
+        self.exist_len += 1
+        self.state = TrackState.Tracked
+        self.is_activated = True
+        self.frame_id = frame_id
+        if new_id:
+            self.track_id = self.next_id_()
 
     def update(self, new_track, frame_id, update_feature=True):
         """
@@ -93,7 +159,9 @@ class STrack(BaseTrack):
         """
         self.frame_id = frame_id
         self.tracklet_len += 1
+        self.exist_len += 1
 
+        self.curr_tlbr = self.tlwh_to_tlbr(new_track.tlwh)
         new_tlwh = new_track.tlwh
         self.mean, self.covariance = self.kalman_filter.update(
             self.mean, self.covariance, self.tlwh_to_xyah(new_tlwh))
@@ -105,7 +173,7 @@ class STrack(BaseTrack):
             self.update_features(new_track.curr_feat)
 
     @property
-    @jit
+    # @jit(nopython=True)
     def tlwh(self):
         """Get current position in bounding box format `(top left x, top left y,
                 width, height)`.
@@ -118,7 +186,7 @@ class STrack(BaseTrack):
         return ret
 
     @property
-    @jit
+    # @jit(nopython=True)
     def tlbr(self):
         """Convert bounding box to format `(min x, min y, max x, max y)`, i.e.,
         `(top left, bottom right)`.
@@ -128,7 +196,7 @@ class STrack(BaseTrack):
         return ret
 
     @staticmethod
-    @jit
+    # @jit(nopython=True)
     def tlwh_to_xyah(tlwh):
         """Convert bounding box to format `(center x, center y, aspect ratio,
         height)`, where the aspect ratio is `width / height`.
@@ -142,14 +210,14 @@ class STrack(BaseTrack):
         return self.tlwh_to_xyah(self.tlwh)
 
     @staticmethod
-    @jit
+    # @jit(nopython=True)
     def tlbr_to_tlwh(tlbr):
         ret = np.asarray(tlbr).copy()
         ret[2:] -= ret[:2]
         return ret
 
     @staticmethod
-    @jit
+    # @jit(nopython=True)
     def tlwh_to_tlbr(tlwh):
         ret = np.asarray(tlwh).copy()
         ret[2:] += ret[:2]
@@ -258,11 +326,12 @@ class JDETracker(object):
         ''' Step 1: Network forward, get detections & embeddings'''
         with torch.no_grad():
             pred = self.model(im_blob)
-        start_indexs=torch.arange(len(pred))
+        start_indexs=torch.arange(54264).reshape(1,-1)
         
         # pred is tensor of all the proposals (default number of proposals: 54264). Proposals have information associated with the bounding box and embeddings
         inds=pred[:, :, 4] > self.opt.conf_thres
         pred = pred[inds]
+        inds=start_indexs[inds]
         
         # pred now has lesser number of proposals. Proposals rejected on basis of object confidence score
         if len(pred) > 0:
@@ -844,6 +913,179 @@ class JDETracker(object):
         target_ind,
         last_info
     ):
+
+        im_blob.requires_grad = True
+        self.model.zero_grad()
+        output = self.model(im_blob)
+
+        output_ori=copy.deepcopy(output)
+
+
+        feature_ids1=output[:,:2584,6:]
+        feature_ids2=output[:,2584:10336+2584,6:]
+        feature_ids3=output[:,10336+2584:10336+2584+41344,6:]
+
+        inds1=output[:,:2584,4]>self.opt.conf_thres
+        inds2=output[:,2584:10336+2584,4]>self.opt.conf_thres
+        inds3=output[:,10336+2584:10336+2584+41344,4]>self.opt.conf_thres
+        inds=output[:,:,4]> self.opt.conf_thres
+        #output=output[inds]
+        fea_=[feature_ids1,feature_ids2,feature_ids3]
+        in_=[inds1,inds2,inds3]
+        id_features=[]
+        
+        for i in range(3):
+            for j in range(3):
+                id_fe=[]
+                for fe_,i_ in zip(fea_,in_):
+                    id_feature_exp = _tranpose_and_gather_feat_expand(fe_, i_, bias=(i - 1, j - 1)).squeeze(0)
+                    id_fe.append(id_feature_exp)
+                id_fe=torch.concatenate(id_fe)
+                id_features.append(id_fe)
+                
+        id_feature =output[:,:,6:][inds].squeeze(0)
+
+        output=output[inds]
+        if len(output) > 0:
+            dets,remain_inds = non_max_suppression(pred.unsqueeze(0), self.opt.conf_thres, self.opt.nms_thres)
+            dets=dets[0].cpu()
+            # Final proposals are obtained in dets. Information of bounding box and embeddings also included
+            # Next step changes the detection scales
+            scale_coords(self.opt.img_size, dets[:, :4], img0.shape).round()
+        for i in range(len(id_features)):
+            id_features[i] = id_features[i][remain_inds]
+        id_feature=id_feature[remain_inds]
+        id_feature = id_feature.detach().cpu().numpy()
+
+        if target_ind is None:
+
+            ious = bbox_ious(np.ascontiguousarray(dets_[[attack_ind], :4], dtype=np.float),
+                            np.ascontiguousarray(dets[:, :4], dtype=np.float))
+        else:
+            ious = bbox_ious(np.ascontiguousarray(dets_[[attack_ind, target_ind], :4], dtype=np.float),
+                                np.ascontiguousarray(dets[:, :4], dtype=np.float))
+            # det_ind = np.argmax(ious, axis=1)
+        row_inds, col_inds = linear_sum_assignment(-ious)
+
+        match = True
+        if target_ind is None:
+            if ious[row_inds[0], col_inds[0]] < 0.8:
+                dets = dets_
+                inds = inds_
+                remain_inds = remain_inds_
+                match = False
+        else:
+            if len(col_inds) < 2 or ious[row_inds[0], col_inds[0]] < 0.6 or ious[row_inds[1], col_inds[1]] < 0.6:
+                dets = dets_
+                inds = inds_
+                remain_inds = remain_inds_
+                match = False
+        ae_attack_id = None
+        ae_target_id = None
+
+        if not match:
+            for i in range(len(id_features)):
+                if target_ind is not None:
+                    id_features[i] = id_features[i][[attack_ind, target_ind]]
+                else:
+                    id_features[i] = id_features[i][[attack_ind]]
+            return id_features, output, ae_attack_id, ae_target_id, None
+
+        if row_inds[0] == 0:
+            ae_attack_ind = col_inds[0]
+            ae_target_ind = col_inds[1] if target_ind is not None else None
+        else:
+            ae_attack_ind = col_inds[1]
+            ae_target_ind = col_inds[0] if target_ind is not None else None
+        # ae_attack_ind = det_ind[0]
+        # ae_target_ind = det_ind[1] if target_ind is not None else None
+
+        hm_index = None
+        # if target_ind is not None:
+        #     hm_index[[attack_ind, target_ind]] = hm_index[[ae_attack_ind, ae_target_ind]]
+
+        id_features_ = [None for _ in range(len(id_features))]
+        for i in range(len(id_features)):
+            if target_ind is None:
+                id_features_[i] = id_features[i][[ae_attack_ind]]
+            else:
+                try:
+                    id_features_[i] = id_features[i][[ae_attack_ind, ae_target_ind]]
+                except:
+                    import pdb; pdb.set_trace()
+
+        id_feature = _tranpose_and_gather_feat_expand(id_feature, inds)
+        id_feature = id_feature.squeeze(0)
+        id_feature = id_feature[remain_inds]
+        id_feature = id_feature.detach().cpu().numpy()
+
+        if len(dets) > 0:
+            '''Detections'''
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+                            (tlbrs, f) in zip(dets[:, :5], id_feature)]
+        else:
+            detections = []
+
+        unconfirmed = copy.deepcopy(last_info['last_unconfirmed'])
+        strack_pool = copy.deepcopy(last_info['last_strack_pool'])
+        kalman_filter = copy.deepcopy(last_info['kalman_filter'])
+        STrack.multi_predict(strack_pool)
+        dists = matching.embedding_distance(strack_pool, detections)
+        dists = matching.fuse_motion(kalman_filter, dists, strack_pool, detections)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)
+
+        for itracked, idet in matches:
+            track = strack_pool[itracked]
+            det = detections[idet]
+            if idet == ae_attack_ind:
+                ae_attack_id = track.track_id
+            elif idet == ae_target_ind:
+                ae_target_id = track.track_id
+
+        # if ae_attack_id is not None and ae_target_id is not None:
+        #     return id_features_, output, ae_attack_id, ae_target_id
+
+        ''' Step 3: Second association, with IOU'''
+        for i, idet in enumerate(u_detection):
+            if idet == ae_attack_ind:
+                ae_attack_ind = i
+            elif idet == ae_target_ind:
+                ae_target_ind = i
+        detections = [detections[i] for i in u_detection]
+        r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
+        dists = matching.iou_distance(r_tracked_stracks, detections)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
+
+        for itracked, idet in matches:
+            track = r_tracked_stracks[itracked]
+            det = detections[idet]
+            if idet == ae_attack_ind:
+                ae_attack_id = track.track_id
+            elif idet == ae_target_ind:
+                ae_target_id = track.track_id
+
+        # if ae_attack_id is not None and ae_target_id is not None:
+        #     return id_features_, output, ae_attack_id, ae_target_id
+
+        '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
+        for i, idet in enumerate(u_detection):
+            if idet == ae_attack_ind:
+                ae_attack_ind = i
+            elif idet == ae_target_ind:
+                ae_target_ind = i
+        detections = [detections[i] for i in u_detection]
+        dists = matching.iou_distance(unconfirmed, detections)
+        matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        for itracked, idet in matches:
+            track = unconfirmed[itracked]
+            if idet == ae_attack_ind:
+                ae_attack_id = track.track_id
+            elif idet == ae_target_ind:
+                ae_target_id = track.track_id
+
+        return id_features_, output, ae_attack_id, ae_target_id, hm_index
+
+
 
 
 

@@ -2,6 +2,10 @@ import numpy as np
 from collections import OrderedDict
 
 
+import numpy as np
+from collections import OrderedDict
+
+
 class TrackState(object):
     New = 0
     Tracked = 1
@@ -11,6 +15,7 @@ class TrackState(object):
 
 class BaseTrack(object):
     _count = 0
+    _count_ = 0
 
     track_id = 0
     is_activated = False
@@ -27,6 +32,11 @@ class BaseTrack(object):
     # multi-camera
     location = (np.inf, np.inf)
 
+    @staticmethod
+    def init():
+        BaseTrack._count = 0
+        BaseTrack._count_ = 0
+
     @property
     def end_frame(self):
         return self.frame_id
@@ -35,6 +45,11 @@ class BaseTrack(object):
     def next_id():
         BaseTrack._count += 1
         return BaseTrack._count
+
+    @staticmethod
+    def next_id_():
+        BaseTrack._count_ += 1
+        return BaseTrack._count_
 
     def activate(self, *args):
         raise NotImplementedError
@@ -50,4 +65,3 @@ class BaseTrack(object):
 
     def mark_removed(self):
         self.state = TrackState.Removed
-
