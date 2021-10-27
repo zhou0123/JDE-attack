@@ -418,6 +418,8 @@ class JDETracker(object):
 
         output = self.model(im_blob)
 
+        output_ori=copy.deepcopy(output)
+
 
         feature_ids1=output[:,:2584,6:]
         feature_ids2=output[:,2584:10336+2584,6:]
@@ -615,7 +617,7 @@ class JDETracker(object):
                                 inds,
                                 remain_inds,
                                 last_info=self.ad_last_info,
-                                outputs_ori=output,
+                                outputs_ori=output_ori,
                                 attack_id=attack_id,
                                 attack_ind=attack_ind,
                                 target_id=target_id,
@@ -658,6 +660,54 @@ class JDETracker(object):
         output_stracks_att = self.update(im_blob, img0, track_id=self_track_id_att)
 
         return output_stracks_ori, output_stracks_att, adImg, noise, l2_dis, suc
+    def Filter_(self,):
+
+
+    def ifgsm_adam_sg(
+            self,
+            im_blob,
+            img0,
+            id_features,
+            dets,
+            inds,
+            remain_inds,
+            last_info,
+            outputs_ori,
+            attack_id,
+            attack_ind,
+            target_id,
+            target_ind,
+            lr=0.1,
+            beta_1=0.9,
+            beta_2=0.999
+    ):
+
+        noise = torch.zeros_like(im_blob)
+        im_blob_ori = im_blob.clone().data
+        last_ad_id_features = [None for _ in range(len(id_features[0]))]
+        strack_pool = copy.deepcopy(last_info['last_strack_pool'])
+        last_attack_det = None
+        last_target_det = None
+        STrack.multi_predict(strack_pool)
+        for strack in strack_pool:
+            if strack.track_id == attack_id:
+                last_ad_id_features[attack_ind] = strack.smooth_feat
+                last_attack_det = torch.from_numpy(strack.tlbr).cuda().float()
+            elif strack.track_id == target_id:
+                last_ad_id_features[target_ind] = strack.smooth_feat
+                last_target_det = torch.from_numpy(strack.tlbr).cuda().float()
+        last_attack_det_center = torch.round(
+            (last_attack_det[:2] + last_attack_det[2:]) / 2) if last_attack_det is not None else None
+        last_target_det_center = torch.round(
+            (last_target_det[:2] + last_target_det[2:]) / 2) if last_target_det is not None else None
+
+
+
+        
+
+
+
+
 
 
 
