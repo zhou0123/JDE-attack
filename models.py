@@ -271,24 +271,29 @@ class Darknet(nn.Module):
                     x = module[0](x, self.img_size)
                 output.append(x)
             layer_outputs.append(x)
+        for i in range(len(output)):
 
+            feature_id=output[i][:,:,6:].permute(0,2,1).reshape(1,2,19*(2**(i+1)),34*(2**(i+1)))
+            dets=output[i][:,:,:4]
+            h=(dets[:,:,3]-dets[:,:,1]).unsqueeze(2)
+            w=(dets[:,:,2]-dets[:,:,0]).unsqueeze(2)
+            wh=torch.cat((w,h),dim=-1)
+            wh=wh.permute(0,2,1).reshape(1,2,19*(2**(i+1)),34*(2**(i+1)))
+            reg=torch.zeros_like(wh)
+            heatmap=output[i][:,:,4].reshape(1,1,19*(2**(i+1)),34*(2**(i+1)))
+            output[i]={
+                'hm'=heatmap,
+                'id'=feature_id,
+                'reg'=reg,
+                'wh'=wh
+            }
         if is_training:
             self.losses['nT'] /= 3 
             output = [o.squeeze() for o in output]
             return sum(output), torch.Tensor(list(self.losses.values())).cuda()
         elif self.test_emb:
             return torch.cat(output, 0)
-        for i in range(len(output)):
-
-            feature_id=output[i][:,:,6:]
-            dets=output[i][:,:,:4]
-            h=(dets[:,:,3]-dets[:,:,1]).unsqueeze(2)
-            w=(dets[:,:,2]-dets[:,:,0]).unsqueeze(2)
-            wh=torch.cat((w,h),dim=-1)
-            print(wh.shape)
-            heatmap=outputs[i][:,:,4]
-        return torch.cat(output, 1)
-
+        return output
 def shift_tensor_vertically(t, delta):
     # t should be a 5-D tensor (nB, nA, nH, nW, nC)
     res = torch.zeros_like(t)
