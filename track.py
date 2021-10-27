@@ -18,6 +18,8 @@ from utils.utils import *
 from models import *
 
 import copy
+from cython_bbox import bbox_overlaps as bbox_ious
+
 
 
 class Logger:
@@ -339,7 +341,6 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
         blob = torch.from_numpy(img).cuda().unsqueeze(0)
         if opt.attack:
             if opt.attack == 'single' and opt.attack_id == -1 and opt.method in ['ids', 'det']:
-                print('aqa'*20)
                 online_targets_ori = tracker.update(blob, img0, name=path.replace(root_r, ''), track_id=track_id)
                 dets = []
                 ids = []
