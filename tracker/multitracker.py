@@ -838,28 +838,23 @@ class JDETracker(object):
             beta_1=0.9,
             beta_2=0.999
     ):
-        img0_h, img0_w = img0.shape[:2]
-        H, W = outputs_ori['hm'].size()[2:]
-        r_w, r_h = img0_w / W, img0_h / H
-        r_max = max(r_w, r_h)
-        noise = torch.zeros_like(im_blob)
+       noise = torch.zeros_like(im_blob)
         im_blob_ori = im_blob.clone().data
         outputs = outputs_ori
-        wh_ori = outputs['wh'].clone().data
-        reg_ori = outputs['reg'].clone().data
         i = 0
         j = -1
         last_ad_id_features = [None for _ in range(len(id_features[0]))]
         strack_pool = copy.deepcopy(last_info['last_strack_pool'])
-        last_attack_dets = [None] * len(attack_ids)
+        ad_attack_ids = [self.multiple_ori2att[attack_id] for attack_id in attack_ids]
+        ad_target_ids = [self.multiple_ori2att[target_id] for target_id in target_ids]
+        last_attack_dets = [None] * len(ad_attack_ids)
+        last_target_dets = [None] * len(ad_target_ids)
         STrack.multi_predict(strack_pool)
         for strack in strack_pool:
-            if strack.track_id in attack_ids:
-                index = attack_ids.tolist().index(strack.track_id)
+            if strack.track_id in ad_attack_ids:
+                index = ad_attack_ids.index(strack.track_id)
                 last_ad_id_features[attack_inds[index]] = strack.smooth_feat
                 last_attack_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
-                last_attack_dets[index][[0, 2]] = (last_attack_dets[index][[0, 2]] - 0.5 * W * (r_w - r_max)) / r_max
-                last_attack_dets[index][[1, 3]] = (last_attack_dets[index][[1, 3]] - 0.5 * H * (r_h - r_max)) / r_max
 
         hm_index = inds[0][remain_inds]
         hm_index_ori = copy.deepcopy(hm_index)
@@ -881,10 +876,10 @@ class JDETracker(object):
             loss += loss_feat / len(id_features)
             loss -= mse(im_blob, im_blob_ori)
 
-            loss += ((1 - outputs['hm'].view(-1).sigmoid()[hm_index]) ** 2 *
-                     torch.log(outputs['hm'].view(-1).sigmoid()[hm_index])).mean()
-            loss -= mse(outputs['wh'].view(-1)[hm_index], wh_ori.view(-1)[hm_index_ori])
-            loss -= mse(outputs['reg'].view(-1)[hm_index], reg_ori.view(-1)[hm_index_ori])
+            loss += ((1 - outputs[0,:,4][hm_index]) ** 2 *
+                     torch.log(outputs[0,:,4][hm_index])).mean()
+            # loss -= mse(outputs['wh'].view(-1)[hm_index], wh_ori.view(-1)[hm_index_ori])
+            # loss -= mse(outputs['reg'].view(-1)[hm_index], reg_ori.view(-1)[hm_index_ori])
 
             loss.backward()
 
@@ -902,6 +897,8 @@ class JDETracker(object):
 
             im_blob = torch.clip(im_blob_ori + noise, min=0, max=1).data
             id_features, outputs, fail_ids = self.forwardFeatureMt(
+                indsx,
+                in_,
                 im_blob,
                 img0,
                 dets,
@@ -2439,55 +2436,63 @@ class JDETracker(object):
         lost_stracks = []
         removed_stracks = []
 
-        width = img0.shape[1]
-        height = img0.shape[0]
-        inp_height = im_blob.shape[2]
-        inp_width = im_blob.shape[3]
-        c = np.array([width / 2., height / 2.], dtype=np.float32)
-        s = max(float(inp_width) / float(inp_height) * height, width) * 1.0
-        meta = {'c': c, 's': s,
-                'out_height': inp_height // self.opt.down_ratio,
-                'out_width': inp_width // self.opt.down_ratio}
+        # width = img0.shape[1]
+        # height = img0.shape[0]
+        # inp_height = im_blob.shape[2]
+        # inp_width = im_blob.shape[3]
+        # c = np.array([width / 2., height / 2.], dtype=np.float32)
+        # s = max(float(inp_width) / float(inp_height) * height, width) * 1.0
+        # meta = {'c': c, 's': s,
+        #         'out_height': inp_height // self.opt.down_ratio,
+        #         'out_width': inp_width // self.opt.down_ratio}
 
         ''' Step 1: Network forward, get detections & embeddings'''
         # with torch.no_grad():
         im_blob.requires_grad = True
-        self.model.zero_grad()
-        output = self.model(im_blob)[-1]
-        hm = output['hm'].sigmoid()
-        wh = output['wh']
-        id_feature = output['id']
-        id_feature = F.normalize(id_feature, dim=1)
+        output = self.model(im_blob)
+        feature_ids1=output[:,:2584,6:].permute(0,2,1).reshape(1,512,19*2,34*2)
+        feature_ids2=output[:,2584:10336+2584,6:].permute(0,2,1).reshape(1,512,38*2,68*2)
+        feature_ids3=output[:,10336+2584:10336+2584+41344,6:].permute(0,2,1).reshape(1,512,76*2,136*2)
 
-        reg = output['reg'] if self.opt.reg_offset else None
-        dets_raw, inds = mot_decode(hm, wh, reg=reg, cat_spec_wh=self.opt.cat_spec_wh, K=self.opt.K)
-
-        id_features = []
+        inds1=output[:,:2584,4]>self.opt.conf_thres
+        inds1=torch.arange(2584).reshape(1,-1)[inds1].reshape(1,-1).to('cuda')
+        inds2=output[:,2584:10336+2584,4]>self.opt.conf_thres
+        inds2=torch.arange(10336).reshape(1,-1)[inds2].reshape(1,-1).to('cuda')
+        inds3=output[:,10336+2584:10336+2584+41344,4]>self.opt.conf_thres
+        inds3=torch.arange(41344).reshape(1,-1)[inds3].reshape(1,-1).to('cuda')
+        indsx=output[:,:,4]> self.opt.conf_thres
+        inds=torch.where(output[:,:,4]> self.opt.conf_thres)[1].reshape(1,-1)
+        #inds=torch.arange(10336+2584+41344).reshape(1,-1)[inds]
+        #output=output[inds]
+        fea_=[feature_ids1,feature_ids2,feature_ids3]
+        in_=[inds1,inds2,inds3]
+        id_features=[]
         for i in range(3):
             for j in range(3):
-                id_feature_exp = _tranpose_and_gather_feat_expand(id_feature, inds, bias=(i - 1, j - 1)).squeeze(0)
-                id_features.append(id_feature_exp)
+                id_fe=[]
+                for fe_,i_ in zip(fea_,in_):
+                    id_feature_exp = _tranpose_and_gather_feat_expand(fe_, i_, bias=(i - 1, j - 1)).squeeze(0)
+                    id_fe.append(id_feature_exp)
+                id_fe=torch.cat(id_fe)
+                id_features.append(id_fe)
+                
+        id_feature =output[:,:,6:][indsx].squeeze(0)
 
-        id_feature = _tranpose_and_gather_feat_expand(id_feature, inds)
-
-        id_feature = id_feature.squeeze(0)
-
-        dets = self.post_process(dets_raw.clone(), meta)
-        dets = self.merge_outputs([dets])[1]
-
-        remain_inds = dets[:, 4] > self.opt.conf_thres
-        dets = dets[remain_inds]
-        id_feature = id_feature[remain_inds]
-
+        output1=output[indsx]
+        if len(output1) > 0:
+            dets,remain_inds = non_max_suppression(output1.unsqueeze(0), self.opt.conf_thres, self.opt.nms_thres)
+            dets=dets[0].cpu().detach().numpy()
+            # Final proposals are obtained in dets. Information of bounding box and embeddings also included
+            # Next step changes the detection scales
+            #(self.opt.img_size, dets[:, :4], img0.shape).round()
         for i in range(len(id_features)):
             id_features[i] = id_features[i][remain_inds]
-
+        id_feature=id_feature[remain_inds]
         id_feature = id_feature.detach().cpu().numpy()
 
         last_id_features = [None for _ in range(len(dets))]
         last_ad_id_features = [None for _ in range(len(dets))]
         dets_index = [i for i in range(len(dets))]
-        ad_dets_index = [i for i in range(len(dets))]
         dets_ids = [None for _ in range(len(dets))]
         tracks_ad = []
 
@@ -2692,6 +2697,8 @@ class JDETracker(object):
                 attack_inds = np.array(attack_inds)[fit_index]
 
                 noise, attack_iter, suc = self.ifgsm_adam_mt_feat(
+                    indsx,
+                    in_,
                     im_blob,
                     img0,
                     id_features,
