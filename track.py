@@ -422,7 +422,24 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
                             suc_attacked_ids.add(attack_id)
                             del trackers_dic[attack_id]
                             torch.cuda.empty_cache()
-
+            elif opt.attack == 'multiple' and opt.method == 'ids':
+                online_targets_ori, output_stracks_att, adImg, noise, l2_dis = tracker.update_attack_mt(
+                    blob,
+                    img0,
+                    name=path.replace(root_r, '')
+                )
+                if l2_dis is not None:
+                    l2_distance.append(l2_dis)
+                    attack_frames += 1
+            elif opt.attack == 'multiple' and opt.method == 'feat':
+                online_targets_ori, output_stracks_att, adImg, noise, l2_dis = tracker.update_attack_mt_feat(
+                    blob,
+                    img0,
+                    name=path.replace(root_r, '')
+                )
+                if l2_dis is not None:
+                    l2_distance.append(l2_dis)
+                    attack_frames += 1
                 tracked_stracks = copy.deepcopy(tracker.tracked_stracks)
                 lost_stracks = copy.deepcopy(tracker.lost_stracks)
                 removed_stracks = copy.deepcopy(tracker.removed_stracks)
