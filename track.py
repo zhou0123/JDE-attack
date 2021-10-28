@@ -494,6 +494,36 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
                 lost_stracks = copy.deepcopy(tracker.lost_stracks)
                 removed_stracks = copy.deepcopy(tracker.removed_stracks)
                 ad_last_info = copy.deepcopy(tracker.ad_last_info)
+            elif opt.attack == 'single' and opt.method == 'ids':
+                assert opt.attack_id > 0
+                online_targets_ori, output_stracks_att, adImg, noise, l2_dis, suc = tracker.update_attack_sg(
+                    blob,
+                    img0,
+                    name=path.replace(root_r, ''),
+                    attack_id=opt.attack_id
+                )
+                if l2_dis is not None:
+                    l2_distance.append(l2_dis)
+            elif opt.attack == 'single' and opt.method == 'feat':
+                assert opt.attack_id > 0
+                online_targets_ori, output_stracks_att, adImg, noise, l2_dis, suc = tracker.update_attack_sg_feat(
+                    blob,
+                    img0,
+                    name=path.replace(root_r, ''),
+                    attack_id=opt.attack_id
+                )
+                if l2_dis is not None:
+                    l2_distance.append(l2_dis)
+            elif opt.attack == 'single' and opt.method == 'det':
+                assert opt.attack_id > 0
+                online_targets_ori, output_stracks_att, adImg, noise, l2_dis, suc = tracker.update_attack_sg_det(
+                    blob,
+                    img0,
+                    name=path.replace(root_r, ''),
+                    attack_id=opt.attack_id
+                )
+                if l2_dis is not None:
+                    l2_distance.append(l2_dis)
             elif opt.attack == 'multiple' and opt.method == 'ids':
                 online_targets_ori, output_stracks_att, adImg, noise, l2_dis = tracker.update_attack_mt(
                     blob,
