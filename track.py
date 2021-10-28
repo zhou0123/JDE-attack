@@ -663,8 +663,8 @@ if __name__ == '__main__':
                       MOT17-11-SDP
                       MOT17-13-SDP
                     '''
-        seqs_str="MOT17-02-SDP"
-        data_root = '/home/zhouchengyu/Data/MOT17/images/train'
+        seqs_str="TUD-Campus"
+        data_root = '/home/zhouchengyu/Data/MOT15/images/train'
     else:
         seqs_str = '''MOT16-01
                      MOT16-03
