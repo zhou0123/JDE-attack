@@ -1248,10 +1248,6 @@ class JDETracker(object):
 
         # for i in range(len(id_features)):
         #     id_features[i] = id_features[i][remain_inds]
-
-
-
-
         ae_attack_id = None
         ae_target_id = None
 
