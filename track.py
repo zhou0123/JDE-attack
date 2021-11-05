@@ -307,7 +307,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
     imgRoot = os.path.join(root, 'image')
     noiseRoot = os.path.join(root, 'noise')
     for path, img, img0 in dataloader:
-        if frame_id % 20 == 0:
+        if frame_id % 2000 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1./max(1e-5, timer.average_time)))
         sg_track_outputs = {}
         # run tracking
@@ -762,7 +762,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', type=str, default='/home/zhouchengyu/Data/')
     parser.add_argument('--output_dir', type=str, default='/home/zhouchengyu/noise/data')
     parser.add_argument('--test_mot15', default=False, help='test mot16')
-    parser.add_argument('--test_mot17', default=False, help='test mot17')
+    parser.add_argument('--test_mot17', default=True, help='test mot17')
     parser.add_argument('--test_mot20', default=False, help='test mot20')
     opt = parser.parse_args()
     print(opt, end='\n\n')
@@ -787,7 +787,7 @@ if __name__ == '__main__':
                       MOT20-06
                       MOT20-07
                       MOT20-08'''
-        data_root = '/home/zhouchengyu/Data/MOT20/images/test'
+        data_root = '/home/zhouchengyu/Data/MOT/MOT20/images/test/'
     elif opt.test_mot17:
         seqs_str = '''MOT17-01-SDP
                       MOT17-03-SDP
@@ -796,7 +796,7 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
-        data_root = '/home/zhouchengyu/Data/MOT17/images/test'
+        data_root = '/home/zhouchengyu/Data/MOT/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
     main(opt,
