@@ -489,7 +489,6 @@ class JDETracker(object):
             (last_target_det[:2] + last_target_det[2:]) / 2) if last_target_det is not None else None
  
         hm_index = inds[0][remain_inds]
-        hm_index_ori = copy.deepcopy(hm_index)
 
         for i in range(len(id_features)):
             id_features[i] = id_features[i][[attack_ind, target_ind]]
@@ -603,19 +602,20 @@ class JDETracker(object):
             # if hm_index_ is not None:
             #     hm_index = hm_index_
             if ae_attack_id != attack_id and ae_attack_id is not None:
-                if ae_attack_id == target_id and ae_target_id == attack_id:
-                    break
-                elif ae_attack_id == target_id or ae_target_id == attack_id:
-                    noise_0 = noise.clone()
-                    i_0 = i
-                else:
-                    noise_1 = noise.clone()
-                    i_1 = i
+                break
+                # if ae_attack_id == target_id and ae_target_id == attack_id:
+                #     break
+                # elif ae_attack_id == target_id or ae_target_id == attack_id:
+                #     noise_0 = noise.clone()
+                #     i_0 = i
+                # else:
+                #     noise_1 = noise.clone()
+                #     i_1 = i
 
             # if ae_attack_id == target_id and ae_target_id == attack_id:
             #     break
 
-            if i > 60:
+            if i > 5:
                 if noise_0 is not None:
                     return noise_0, i_0, suc
                 elif noise_1 is not None:
@@ -857,8 +857,8 @@ class JDETracker(object):
             # Final proposals are obtained in dets. Information of bounding box and embeddings also included
             # Next step changes the detection scales
             #scale_coords(self.opt.img_size, dets[:, :4], img0.shape).round()
-        for i in range(len(id_features)):
-            id_features[i] = id_features[i][remain_inds]
+        # for i in range(len(id_features)):
+        #     id_features[i] = id_features[i][remain_inds]
         
 
         if target_ind is None:
@@ -868,8 +868,10 @@ class JDETracker(object):
             ious = bbox_ious(np.ascontiguousarray(dets_[[attack_ind, target_ind], :4], dtype=np.float),
                              np.ascontiguousarray(dets[:, :4], dtype=np.float))
         # det_ind = np.argmax(ious, axis=1)
-        row_inds, col_inds = linear_sum_assignment(-ious)
+        print(dets_.shape)
+        print(ious)
 
+        row_inds, col_inds = linear_sum_assignment(-ious)
         match = True
         if target_ind is None:
             if ious[row_inds[0], col_inds[0]] < 0.8:
@@ -895,10 +897,10 @@ class JDETracker(object):
                     id_fe.append(id_feature_exp)
                 id_fe=torch.cat(id_fe)
                 id_features.append(id_fe)
+        for i in range(len(id_features)):
+            id_features[i] = id_features[i][remain_inds]
                 
-        id_feature =output[:,:,6:][indsx].squeeze(0)
-        id_feature=id_feature[remain_inds]
-        id_feature = id_feature.detach().cpu().numpy()
+        
 
         # # assert match
         # id_features = []
@@ -907,8 +909,7 @@ class JDETracker(object):
         #         id_feature_exp = _tranpose_and_gather_feat_expand(id_feature, inds, bias=(i - 1, j - 1)).squeeze(0)
         #         id_features.append(id_feature_exp)
 
-        # for i in range(len(id_features)):
-        #     id_features[i] = id_features[i][remain_inds]
+        
         ae_attack_id = None
         ae_target_id = None
 
@@ -947,7 +948,9 @@ class JDETracker(object):
         # id_feature = id_feature.squeeze(0)
         # id_feature = id_feature[remain_inds]
         # id_feature = id_feature.detach().cpu().numpy()
-
+        id_feature =output[:,:,6:][indsx].squeeze(0)
+        id_feature=id_feature[remain_inds]
+        id_feature = id_feature.detach().cpu().numpy()
         if len(dets) > 0:
             '''Detections'''
             detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
@@ -1277,6 +1280,7 @@ class JDETracker(object):
         inds3=torch.arange(41344).reshape(1,-1)[inds3].reshape(1,-1).to('cuda')
         indsx=output[:,:,4]> self.opt.conf_thres
         inds=torch.where(output[:,:,4]> self.opt.conf_thres)[1].reshape(1,-1)
+
         #inds=torch.arange(10336+2584+41344).reshape(1,-1)[inds]
         #output=output[inds]
         fea_=[feature_ids1,feature_ids2,feature_ids3]
@@ -1304,7 +1308,6 @@ class JDETracker(object):
             id_features[i] = id_features[i][remain_inds]
         id_feature=id_feature[remain_inds]
         id_feature = id_feature.detach().cpu().numpy()
-
         last_id_features = [None for _ in range(len(dets))]
         last_ad_id_features = [None for _ in range(len(dets))]
         dets_index = [i for i in range(len(dets))]
@@ -1467,6 +1470,7 @@ class JDETracker(object):
                                    np.ascontiguousarray(dets[:, :4], dtype=np.float64))
                     dis[range(len(dets)), range(len(dets))] = np.inf
                     target_ind = np.argmax(ious[attack_ind])
+                   # print(self.attack_iou_thr)
                     if ious[attack_ind][target_ind] >= self.attack_iou_thr:
                         if ious[attack_ind][target_ind] == 0:
                             target_ind = np.argmin(dis[attack_ind])

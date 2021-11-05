@@ -263,41 +263,8 @@ def evaluate_attack(result_filename_ori, result_filename_att):
     mean_iou = track_iou.max(axis=1).mean()
     return mean_recall, mean_precision, mean_iou
 
-def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30):
-    '''
-       Processes the video sequence given and provides the output of tracking result (write the results in video file)
+def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_image=True, frame_rate=30):
 
-       It uses JDE model for getting information about the online targets present.
-
-       Parameters
-       ----------
-       opt : Namespace
-             Contains information passed as commandline arguments.
-
-       dataloader : LoadVideo
-                    Instance of LoadVideo class used for fetching the image sequence and associated data.
-
-       data_type : String
-                   Type of dataset corresponding(similar) to the given video.
-
-       result_filename : String
-                         The name(path) of the file for storing results.
-
-       save_dir : String
-                  Path to the folder for storing the frames containing bounding box information (Result frames).
-
-       show_image : bool
-                    Option for shhowing individial frames during run-time.
-
-       frame_rate : int
-                    Frame-rate of the given video.
-
-       Returns
-       -------
-       (Returns are not significant here)
-       frame_id : int
-                  Sequence number of the last sequence
-       '''
     BaseTrack.init()
     need_attack_ids = set([])
     suc_attacked_ids = set([])
@@ -314,6 +281,8 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     sg_track_ids = {}
     sg_attack_frames = {}
     attack_frames = 0
+    all_effective_ids = set([])
+
     if save_dir:
         mkdir_if_missing(save_dir)
     model = Darknet(opt.cfg, nID=14455)
@@ -348,17 +317,15 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
                     if strack.track_id not in frequency_ids:
                         frequency_ids[strack.track_id] = 0
                     frequency_ids[strack.track_id] += 1
-                    if frequency_ids[strack.track_id] > tracker.FRAME_THR:
-                        ids.append(strack.track_id)
-                        dets.append(strack.curr_tlbr.reshape(1, -1))
+                    ids.append(strack.track_id)
+                    dets.append(strack.curr_tlbr.reshape(1, -1))
                 if len(ids) > 0:
                     dets = np.concatenate(dets).astype(np.float64)
                     ious = bbox_ious(dets, dets)
                     ious[range(len(dets)), range(len(dets))] = 0
                     for i in range(len(dets)):
-                        for j in range(len(dets)):
-                            if ious[i, j] > tracker.ATTACK_IOU_THR:
-                                need_attack_ids.add(ids[i])
+                        if (ious[i] > tracker.ATTACK_IOU_THR).sum() > 0 and frequency_ids[ids[i]] > tracker.FRAME_THR:
+                            need_attack_ids.add(ids[i])
 
                 for attack_id in need_attack_ids:
                     if attack_id in suc_attacked_ids:
@@ -778,8 +745,8 @@ if __name__ == '__main__':
                       MOT17-11-SDP
                       MOT17-13-SDP
                     '''
-        seqs_str="TUD-Campus"
-        data_root = '/home/zhouchengyu/Data/MOT15/images/train'
+        #seqs_str="TUD-Campus"
+        data_root = '/home/zhouchengyu/Data/MOT/MOT17/images/train/'
     else:
         seqs_str = '''MOT16-01
                      MOT16-03
