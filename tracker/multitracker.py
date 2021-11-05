@@ -303,7 +303,6 @@ class JDETracker(object):
             # load_darknet_weights(self.model, opt.weights)
             self.model.load_state_dict(torch.load(opt.weights, map_location='cpu')['model'], strict=False)
         self.model.eval()
-
         self.log_index = []
         self.unconfirmed_ad_iou = None
         self.tracked_stracks_ad_iou = None
