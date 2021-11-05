@@ -295,7 +295,7 @@ class JDETracker(object):
             model=None
     ):
         self.opt = opt
-        print('Creating model...')
+        #print('Creating model...')
         if model:
             self.model = model.to('cuda')
         else:
@@ -1829,10 +1829,10 @@ class JDETracker(object):
                 self.low_iou_ids.update(set(attack_ids))
                 if suc:
                     self.attacked_ids.update(set(attack_ids))
-                #     print(
-                #         f'attack ids: {attack_ids}\tattack frame {self.frame_id_}: SUCCESS\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
-                # else:
-                #     print(f'attack ids: {attack_ids}\tattack frame {self.frame_id_}: FAIL\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
+                    print(
+                        f'attack ids: {attack_ids}\tattack frame {self.frame_id_}: SUCCESS\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
+                else:
+                    print(f'attack ids: {attack_ids}\tattack frame {self.frame_id_}: FAIL\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
 
         if noise is not None:
             l2_dis = (noise ** 2).sum().sqrt().item()
