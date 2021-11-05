@@ -5,8 +5,9 @@ import logging
 import argparse
 import motmetrics as mm
 from tracker.basetrack import BaseTrack, TrackState
-
+import numpy as np
 import torch
+
 from tracker.multitracker import JDETracker
 from utils import visualization as vis
 from utils.log import logger
@@ -19,6 +20,8 @@ from models import *
 
 import copy
 from cython_bbox import bbox_overlaps as bbox_ious
+from scipy.optimize import linear_sum_assignment
+
 
 
 
@@ -764,6 +767,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_mot15', default=False, help='test mot16')
     parser.add_argument('--test_mot17', default=True, help='test mot17')
     parser.add_argument('--test_mot20', default=False, help='test mot20')
+    parser.add_argument('--no_f_noise', action='store_true')
     opt = parser.parse_args()
     print(opt, end='\n\n')
  
