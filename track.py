@@ -262,7 +262,12 @@ def evaluate_attack(result_filename_ori, result_filename_att):
     mean_precision = track_union.sum() / att_track_len[0].sum()
     mean_iou = track_iou.max(axis=1).mean()
     return mean_recall, mean_precision, mean_iou
-
+total_eff_ids = 0
+total_attack_ids = 0
+total_suc_ids = 0
+sg_attack_frames2ids = {}
+total_l2_dis = []
+total_attack_frame = []
 def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_image=True, frame_rate=30):
 
     BaseTrack.init()
@@ -365,7 +370,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                     sg_track_outputs[attack_id]['output_stracks_att'] = output_stracks_att
                     sg_track_outputs[attack_id]['adImg'] = adImg
                     sg_track_outputs[attack_id]['noise'] = noise
-                    if suc in [1, 2]:
+                    if suc in [1, 2] and noise is not None:
                         if attack_id not in sg_attack_frames:
                             sg_attack_frames[attack_id] = 0
                         sg_attack_frames[attack_id] += 1
@@ -606,7 +611,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                                 sg_track_outputs[key]['online_im'])
             cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
         frame_id += 1
-    for key in suc_frequency_ids.keys():
+    for key in list(suc_frequency_ids.keys()):
         if suc_frequency_ids[key] == 0:
             del suc_frequency_ids[key]
     suc_attacked_ids.update(set(suc_frequency_ids.keys()))
@@ -623,6 +628,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
     print(f'output file saved in {output_file}')
     file = open(output_file, 'w')
     out_logger = Logger(file)
+    global total_l2_dis
+    global total_attack_frame
     if opt.attack == 'single' and opt.attack_id == -1:
         out_logger('@' * 50 + ' single attack accuracy ' + '@' * 50)
         out_logger(f'All attacked ids is {need_attack_ids}')
@@ -634,26 +641,47 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
         out_logger(
             f'The attacked frames: {sg_attack_frames}\tmin: {min(sg_attack_frames.values()) if len(need_attack_ids) else None}\t'
             f'max: {max(sg_attack_frames.values()) if len(need_attack_ids) else None}\tmean: {sum(sg_attack_frames.values()) / len(sg_attack_frames) if len(need_attack_ids) else None}')
-        sg_attack_frames2ids = {}
+        global sg_attack_frames2ids
+        total_attack_frame.extend(list(sg_attack_frames.values()))
         for key in sg_attack_frames.keys():
             if sg_attack_frames[key] not in sg_attack_frames2ids:
                 sg_attack_frames2ids[sg_attack_frames[key]] = 0
             sg_attack_frames2ids[sg_attack_frames[key]] += 1
-        out_logger(f'Distribute of attacked frames: {sg_attack_frames2ids}')
         out_logger(
             f'The mean L2 distance: {dict(zip(suc_attacked_ids, [sum(l2_distance_sg[k]) / len(l2_distance_sg[k]) for k in suc_attacked_ids])) if len(suc_attacked_ids) else None}')
+        total_l2_dis.extend([sum(l2_distance_sg[k]) / len(l2_distance_sg[k]) for k in suc_attacked_ids])
+        out_logger(f'Total: Distribute of attacked frames: {sg_attack_frames2ids}')
     elif opt.attack == 'multiple':
         eval_attack = MultipleEval(tracker.FRAME_THR, tracker.ATTACK_IOU_THR)
-        success_attack_id, all_attack_id = eval_attack(result_filename, result_filename.replace('.txt', f'_attack.txt'))
+        suc_attacked_ids, need_attack_ids = eval_attack(result_filename,
+                                                        result_filename.replace('.txt', f'_attack.txt'))
         out_logger('@' * 50 + ' multiple attack accuracy ' + '@' * 50)
-        out_logger(f'All attacked ids is {all_attack_id}')
-        out_logger(f'All successfully attacked ids is {success_attack_id}')
-        out_logger(f'All unsuccessfully attacked ids is {all_attack_id - success_attack_id}')
+        out_logger(f'All attacked ids is {need_attack_ids}')
+        out_logger(f'All successfully attacked ids is {suc_attacked_ids}')
+        out_logger(f'All unsuccessfully attacked ids is {need_attack_ids - suc_attacked_ids}')
         out_logger(
-            f'The accuracy is {round(100 * len(success_attack_id) / len(all_attack_id), 2) if len(all_attack_id) else None}% | '
-            f'{len(success_attack_id)}/{len(all_attack_id)}')
+            f'The accuracy is {round(100 * len(suc_attacked_ids) / len(need_attack_ids), 2) if len(need_attack_ids) else None}% | '
+            f'{len(suc_attacked_ids)}/{len(need_attack_ids)}')
         out_logger(f'The attacked frames: {attack_frames}')
+        total_attack_frame.append(attack_frames / frame_id)
         out_logger(f'The mean L2 distance: {sum(l2_distance) / len(l2_distance) if len(l2_distance) else None}')
+        total_l2_dis.extend(l2_distance)
+    out_logger(f'All effective ids is {all_effective_ids} | {len(all_effective_ids)}')
+    global total_eff_ids
+    global total_attack_ids
+    global total_suc_ids
+
+    total_eff_ids += len(all_effective_ids)
+    total_attack_ids += len(need_attack_ids)
+    out_logger(
+        f'Total: Effective ids: {total_attack_ids / total_eff_ids if total_eff_ids > 0 else 0} | {total_attack_ids}/{total_eff_ids}')
+    total_suc_ids += len(suc_attacked_ids)
+    out_logger(
+        f'Total: Success rate: {total_suc_ids / total_attack_ids if total_attack_ids > 0 else 0} | {total_suc_ids}/{total_attack_ids}')
+    out_logger(
+        f'Total: Mean L2 distance: {sum(total_l2_dis) / len(total_l2_dis) if len(total_l2_dis) else 0} | {len(total_l2_dis)}')
+    out_logger(
+        f'Total: Mean attack frame: {sum(total_attack_frame) / len(total_attack_frame) if len(total_attack_frame) else 0}')
     file.close()
     return frame_id, timer.average_time, timer.calls, l2_distance
 
@@ -733,28 +761,41 @@ if __name__ == '__main__':
     parser.add_argument('--method', default='ids', type=str)
     parser.add_argument('--data_dir', type=str, default='/home/zhouchengyu/Data/')
     parser.add_argument('--output_dir', type=str, default='/home/zhouchengyu/noise/data')
+    parser.add_argument('--test_mot15', default=False, help='test mot16')
+    parser.add_argument('--test_mot17', default=False, help='test mot17')
+    parser.add_argument('--test_mot20', default=False, help='test mot20')
     opt = parser.parse_args()
     print(opt, end='\n\n')
  
-    if not opt.test_mot16:
-        seqs_str = '''MOT17-02-SDP
-                      MOT17-04-SDP
-                      MOT17-05-SDP
-                      MOT17-09-SDP
-                      MOT17-10-SDP
-                      MOT17-11-SDP
-                      MOT17-13-SDP
+    if  opt.test_mot15:
+        seqs_str = '''ADL-Rundle-1
+                      ADL-Rundle-3
+                      AVG-TownCentre
+                      ETH-Crossing
+                      ETH-Jelmoli
+                      ETH-Linthescher
+                      KITTI-16
+                      KITTI-19
+                      PETS09-S2L2
+                      TUD-Crossing
+                      Venice-1
                     '''
         #seqs_str="TUD-Campus"
-        data_root = '/home/zhouchengyu/Data/MOT/MOT17/images/train/'
-    else:
-        seqs_str = '''MOT16-01
-                     MOT16-03
-                     MOT16-06
-                     MOT16-07
-                     MOT16-08
-                     MOT16-12
-                     MOT16-14'''
+        data_root = '/home/zhouchengyu/Data/MOT/MOT15/images/test/'
+    elif opt.test_mot20:
+        seqs_str = '''MOT20-04
+                      MOT20-06
+                      MOT20-07
+                      MOT20-08'''
+        data_root = '/home/zhouchengyu/Data/MOT20/images/test'
+    elif opt.test_mot17:
+        seqs_str = '''MOT17-01-SDP
+                      MOT17-03-SDP
+                      MOT17-06-SDP
+                      MOT17-07-SDP
+                      MOT17-08-SDP
+                      MOT17-12-SDP
+                      MOT17-14-SDP'''
         data_root = '/home/zhouchengyu/Data/MOT17/images/test'
     seqs = [seq.strip() for seq in seqs_str.split()]
 

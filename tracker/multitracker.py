@@ -524,6 +524,7 @@ class JDETracker(object):
                 if last_ad_id_features[attack_ind] is None and last_ad_id_features[target_ind] is None:
                     loss_feat += torch.mm(id_feature[0:0 + 1], id_feature[1:1 + 1].T).squeeze()
             loss += loss_feat / len(id_features)
+            print(loss)
             # loss -= mse(im_blob, im_blob_ori)
 
             if i in [10, 20, 30, 35, 40, 45, 50, 55]:
@@ -572,7 +573,6 @@ class JDETracker(object):
                         torch.log(outputs[0,:,4][n_att_hm_index])).mean()
                 loss += ((outputs[0,:,4][n_ori_hm_index_re]) ** 2 *
                         torch.log(1 - outputs[0,:,4][n_ori_hm_index_re])).mean()
-
             loss.backward()
 
             grad = im_blob.grad
@@ -615,7 +615,7 @@ class JDETracker(object):
             # if ae_attack_id == target_id and ae_target_id == attack_id:
             #     break
 
-            if i > 5:
+            if i > 6:
                 if noise_0 is not None:
                     return noise_0, i_0, suc
                 elif noise_1 is not None:
@@ -868,8 +868,6 @@ class JDETracker(object):
             ious = bbox_ious(np.ascontiguousarray(dets_[[attack_ind, target_ind], :4], dtype=np.float),
                              np.ascontiguousarray(dets[:, :4], dtype=np.float))
         # det_ind = np.argmax(ious, axis=1)
-        print(dets_.shape)
-        print(ious)
 
         row_inds, col_inds = linear_sum_assignment(-ious)
         match = True
@@ -1051,8 +1049,8 @@ class JDETracker(object):
             # Final proposals are obtained in dets. Information of bounding box and embeddings also included
             # Next step changes the detection scales
             #scale_coords(self.opt.img_size, dets[:, :4], img0.shape).round()
-        for i in range(len(id_features)):
-            id_features[i] = id_features[i][remain_inds]
+        # for i in range(len(id_features)):
+        #     id_features[i] = id_features[i][remain_inds]
 
         ious = bbox_ious(np.ascontiguousarray(dets_[:, :4], dtype=np.float64),
                          np.ascontiguousarray(dets[:, :4], dtype=np.float64))
@@ -1783,7 +1781,7 @@ class JDETracker(object):
                         self.__setattr__(f'temp_i_{track_id}', 1)
                     if self.__getattribute__(f'temp_i_{track_id}') > 10:
                         self.low_iou_ids.remove(track_id)
-                    else:
+                    elif dets_ids[dis_inds[attack_ind]] in self.multiple_ori2att:
                         attack_ids.append(track_id)
                         target_ids.append(dets_ids[dis_inds[attack_ind]])
                         attack_inds.append(attack_ind)
