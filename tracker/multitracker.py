@@ -492,15 +492,13 @@ class JDETracker(object):
                 last_ad_id_features[target_ind] = strack.smooth_feat
                 last_target_det = torch.from_numpy(strack.tlbr).cuda().float()
                 last_target_det[[0, 2]] = (last_target_det[[0, 2]] - 0.5 * W_t * (r_w_t - r_max_t)) / r_max_t
-                last_target_det[[1, 3]] = (last_target_det[[1, 3]] - 0.5 * H_t * (r_h_t - r_max_t)) / r_max_t
+                last_target_det[[1, 3]] = (last_target_det[[1, 3]] - 0.5 * H_t * (r_h_t- r_max_t)) / r_max_t
               
         last_attack_det_center = torch.round(
             (last_attack_det[:2] + last_attack_det[2:]) / 2) if last_attack_det is not None else None
         last_target_det_center = torch.round(
             (last_target_det[:2] + last_target_det[2:]) / 2) if last_target_det is not None else None
- 
         
-
         for i in range(len(id_features)):
             id_features[i] = id_features[i][[attack_ind, target_ind]]
 
@@ -572,11 +570,11 @@ class JDETracker(object):
                         for n_j in range(3):
                             att_hm_ind = att_hm_index[hm_ind].item()
                             att_hm_ind = att_hm_ind + (n_i - 1) * W_a + (n_j - 1)
-                            att_hm_ind = max(0, min(H_a*W_a-1, att_hm_ind))
+                            att_hm_ind = max(0, min(H_a*W_a-1+a_, att_hm_ind))
                             n_att_hm_index.append(att_hm_ind)
                             ori_hm_ind = ori_hm_index_re[hm_ind].item()
                             ori_hm_ind = ori_hm_ind + (n_i - 1) * W_t + (n_j - 1)
-                            ori_hm_ind = max(0, min(H_t * W_t - 1, ori_hm_ind))
+                            ori_hm_ind = max(0, min(H_t * W_t - 1+t_, ori_hm_ind))
                             n_ori_hm_index_re.append(ori_hm_ind)
                 boxes=outputs[0,:,:4]
                 boxes_ori=outputs[0,:,:4].clone().data
@@ -633,7 +631,7 @@ class JDETracker(object):
             # if ae_attack_id == target_id and ae_target_id == attack_id:
             #     break
 
-            if i >60:
+            if i >2:
                 if noise_0 is not None:
                     return noise_0, i_0, suc
                 elif noise_1 is not None:
@@ -874,7 +872,6 @@ class JDETracker(object):
         #output=output[inds]
         fea_=[feature_ids1,feature_ids2,feature_ids3]
         in_=[inds1,inds2,inds3]
-        id_features=[]
         
         
         output1=output[indsx]
@@ -914,6 +911,7 @@ class JDETracker(object):
                 remain_inds = remain_inds_
                 indsx=indsx_
                 match = False
+        id_features=[]
         for i in range(3):
             for j in range(3):
                 id_fe=[]
@@ -1519,12 +1517,12 @@ class JDETracker(object):
                             self.attack_iou_thr = 0
                             if suc:
                                 suc = 1
-                                # print(
-                                #     f'attack id: {attack_id}\tattack frame {self.frame_id_}: SUCCESS\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
+                                print(
+                                    f'attack id: {attack_id}\tattack frame {self.frame_id_}: SUCCESS\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
                             else:
                                 suc = 2
-                                # print(
-                                #     f'attack id: {attack_id}\tattack frame {self.frame_id_}: FAIL\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
+                                print(
+                                    f'attack id: {attack_id}\tattack frame {self.frame_id_}: FAIL\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
                         else:
                             suc = 3
                         if ious[attack_ind][target_ind] == 0:
