@@ -526,8 +526,8 @@ class JDETracker(object):
             # loss -= mse(im_blob, im_blob_ori)
 
             if i in [10, 20, 30, 35, 40, 45, 50, 55]:
-                Index_a,W_a,H_a=Filter_(hm_index[attack_ind])
-                Index_t,W_t,H_t=Filter_(hm_index[target_ind])
+                Index_a,W_a,H_a,a_=Filter_(hm_index[attack_ind])
+                Index_t,W_t,H_t,t_=Filter_(hm_index[target_ind])
                 attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                 target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
                 if last_target_det_center is not None:
@@ -535,13 +535,13 @@ class JDETracker(object):
                     if torch.max(torch.abs(attack_center_delta)) > 1:
                         attack_center_delta /= torch.max(torch.abs(attack_center_delta))
                         attack_det_center = torch.round(attack_det_center - attack_center_delta).int()
-                        hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a
+                        hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a+a_
                 if last_attack_det_center is not None:
                     target_center_delta = target_det_center - last_attack_det_center
                     if torch.max(torch.abs(target_center_delta)) > 1:
                         target_center_delta /= torch.max(torch.abs(target_center_delta))
                         target_det_center = torch.round(target_det_center - target_center_delta).int()
-                        hm_index[target_ind] = target_det_center[0] + target_det_center[1] * W_t
+                        hm_index[target_ind] = target_det_center[0] + target_det_center[1] * W_t+t_
                 att_hm_index = hm_index[[attack_ind, target_ind]].clone()
 
 
@@ -622,7 +622,7 @@ class JDETracker(object):
             # if ae_attack_id == target_id and ae_target_id == attack_id:
             #     break
 
-            if i > 60:
+            if i >60:
                 if noise_0 is not None:
                     return noise_0, i_0, suc
                 elif noise_1 is not None:
@@ -3693,8 +3693,8 @@ def load(name):
 def Filter_(index):
 
     if index <=2584:
-        return index,136/2,76/2
+        return index,136/2,76/2,0
     if index>2584 and index<=10336+2584:
-        return index- 2584,136,76
+        return index- 2584,136,76,2584
     if index > 2584+10336 :
-        return index-2584-10336,136*2,76*2
+        return index-2584-10336,136*2,76*2,2584+10336

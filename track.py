@@ -569,6 +569,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
             if tlwh[2] * tlwh[3] > opt.min_box_area and not vertical:
                 online_tlwhs.append(tlwh)
                 online_ids.append(tid)
+            if t.exist_len > 10:
+                all_effective_ids.add(t.track_id)
         timer.toc()
         # save results
         results.append((frame_id + 1, online_tlwhs, online_ids))
@@ -800,6 +802,7 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
+        seqs_str ="""MOT17-01-SDP"""
         data_root = '/home/zhouchengyu/Data/MOT/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
