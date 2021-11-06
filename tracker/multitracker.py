@@ -535,28 +535,28 @@ class JDETracker(object):
             loss += loss_feat / len(id_features)
             # loss -= mse(im_blob, im_blob_ori)
 
-            if i in [10, 20, 30, 35, 40, 45, 50, 55]:
+            #if i in [10, 20, 30, 35, 40, 45, 50, 55]:
                 
-                attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
-                target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
-                if last_target_det_center is not None:
-                    attack_center_delta = attack_det_center - last_target_det_center
-                    if torch.max(torch.abs(attack_center_delta)) > 1:
-                        attack_center_delta /= torch.max(torch.abs(attack_center_delta))
-                        attack_det_center = torch.round(attack_det_center - attack_center_delta).int()
-                        hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a+a_
-                if last_attack_det_center is not None:
-                    target_center_delta = target_det_center - last_attack_det_center
-                    if torch.max(torch.abs(target_center_delta)) > 1:
-                        target_center_delta /= torch.max(torch.abs(target_center_delta))
-                        target_det_center = torch.round(target_det_center - target_center_delta).int()
-                        hm_index[target_ind] = target_det_center[0] + target_det_center[1] * W_t+t_
-                att_hm_index = hm_index[[attack_ind, target_ind]].clone()
+            attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
+            target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
+            if last_target_det_center is not None:
+                attack_center_delta = attack_det_center - last_target_det_center
+                if torch.max(torch.abs(attack_center_delta)) > 1:
+                    attack_center_delta /= torch.max(torch.abs(attack_center_delta))
+                    attack_det_center = torch.round(attack_det_center - attack_center_delta).int()
+                    hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a+a_
+            if last_attack_det_center is not None:
+                target_center_delta = target_det_center - last_attack_det_center
+                if torch.max(torch.abs(target_center_delta)) > 1:
+                    target_center_delta /= torch.max(torch.abs(target_center_delta))
+                    target_det_center = torch.round(target_det_center - target_center_delta).int()
+                    hm_index[target_ind] = target_det_center[0] + target_det_center[1] * W_t+t_
+            att_hm_index = hm_index[[attack_ind, target_ind]].clone()
 
 
             # loss += ((1 - outputs['hm'].view(-1).sigmoid()[hm_index]) ** 2 *
             #          torch.log(outputs['hm'].view(-1).sigmoid()[hm_index])).mean()
-
+            #print(att_hm_index)
             if att_hm_index is not None:
                 # loss += ((1 - outputs['hm'].view(-1).sigmoid()[att_hm_index]) ** 2 *
                 #         torch.log(outputs['hm'].view(-1).sigmoid()[att_hm_index])).mean()
@@ -570,12 +570,15 @@ class JDETracker(object):
                         for n_j in range(3):
                             att_hm_ind = att_hm_index[hm_ind].item()
                             att_hm_ind = att_hm_ind + (n_i - 1) * W_a + (n_j - 1)
-                            att_hm_ind = max(0, min(H_a*W_a-1+a_, att_hm_ind))
+                            att_hm_ind = max(a_, min(H_a*W_a-1+a_, att_hm_ind))
                             n_att_hm_index.append(att_hm_ind)
                             ori_hm_ind = ori_hm_index_re[hm_ind].item()
                             ori_hm_ind = ori_hm_ind + (n_i - 1) * W_t + (n_j - 1)
-                            ori_hm_ind = max(0, min(H_t * W_t - 1+t_, ori_hm_ind))
+                            ori_hm_ind = max(t_, min(H_t * W_t - 1+t_, ori_hm_ind))
                             n_ori_hm_index_re.append(ori_hm_ind)
+                # print(n_att_hm_index)
+                # print(hm_index[attack_ind])
+                # print('aqa'*100)
                 boxes=outputs[0,:,:4]
                 boxes_ori=outputs[0,:,:4].clone().data
                 w=(boxes[:,2]-boxes[:,0]).reshape(-1,1)
