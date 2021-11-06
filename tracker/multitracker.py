@@ -463,10 +463,18 @@ class JDETracker(object):
             beta_1=0.9,
             beta_2=0.999
     ):
-
+        img0_h, img0_w = img0.shape[:2]
         noise = torch.zeros_like(im_blob)
         im_blob_ori = im_blob.clone().data
         outputs = outputs_ori
+        hm_index = inds[0][remain_inds]
+        Index_a,W_a,H_a,a_=Filter_(hm_index[attack_ind])
+        Index_t,W_t,H_t,t_=Filter_(hm_index[target_ind])
+
+        r_w_a, r_h_a = img0_w / W_a, img0_h / H_a
+        r_w_t, r_h_t = img0_w / W_t, img0_h / H_t
+        r_max_a = max(r_w_a, r_h_a)
+        r_max_t = max(r_w_t, r_h_t)
 
         last_ad_id_features = [None for _ in range(len(id_features[0]))]
         strack_pool = copy.deepcopy(last_info['last_strack_pool'])
@@ -477,17 +485,21 @@ class JDETracker(object):
             if strack.track_id == attack_id:
                 last_ad_id_features[attack_ind] = strack.smooth_feat
                 last_attack_det = torch.from_numpy(strack.tlbr).cuda().float()
+                last_attack_det[[0, 2]] = (last_attack_det[[0, 2]] - 0.5 * W_a * (r_w_a - r_max_a)) / r_max_a
+                last_attack_det[[1, 3]] = (last_attack_det[[1, 3]] - 0.5 * H_a * (r_h_a - r_max_a)) / r_max_a
                
             elif strack.track_id == target_id:
                 last_ad_id_features[target_ind] = strack.smooth_feat
                 last_target_det = torch.from_numpy(strack.tlbr).cuda().float()
+                last_target_det[[0, 2]] = (last_target_det[[0, 2]] - 0.5 * W_t * (r_w_t - r_max_t)) / r_max_t
+                last_target_det[[1, 3]] = (last_target_det[[1, 3]] - 0.5 * H_t * (r_h_t - r_max_t)) / r_max_t
               
         last_attack_det_center = torch.round(
             (last_attack_det[:2] + last_attack_det[2:]) / 2) if last_attack_det is not None else None
         last_target_det_center = torch.round(
             (last_target_det[:2] + last_target_det[2:]) / 2) if last_target_det is not None else None
  
-        hm_index = inds[0][remain_inds]
+        
 
         for i in range(len(id_features)):
             id_features[i] = id_features[i][[attack_ind, target_ind]]
@@ -526,8 +538,7 @@ class JDETracker(object):
             # loss -= mse(im_blob, im_blob_ori)
 
             if i in [10, 20, 30, 35, 40, 45, 50, 55]:
-                Index_a,W_a,H_a,a_=Filter_(hm_index[attack_ind])
-                Index_t,W_t,H_t,t_=Filter_(hm_index[target_ind])
+                
                 attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                 target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
                 if last_target_det_center is not None:
@@ -727,8 +738,8 @@ class JDETracker(object):
                                               id_feature[target_ind:target_ind + 1].T).squeeze()
 
                 if i in [10, 20, 30, 35, 40, 45, 50, 55]:
-                    Index_a,W_a,H_a=Filter_(hm_index[attack_ind])
-                    Index_t,W_t,H_t=Filter_(hm_index[target_ind])
+                    Index_a,W_a,H_a,a_=Filter_(hm_index[attack_ind])
+                    Index_t,W_t,H_t,t_=Filter_(hm_index[target_ind])
                     attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                     target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
                     if last_target_dets_center[index] is not None:
@@ -736,13 +747,13 @@ class JDETracker(object):
                         if torch.max(torch.abs(attack_center_delta)) > 1:
                             attack_center_delta /= torch.max(torch.abs(attack_center_delta))
                             attack_det_center = torch.round(attack_det_center - attack_center_delta).int()
-                            hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a
+                            hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a+a_
                     if last_attack_dets_center[index] is not None:
                         target_center_delta = target_det_center - last_attack_dets_center[index]
                         if torch.max(torch.abs(target_center_delta)) > 1:
                             target_center_delta /= torch.max(torch.abs(target_center_delta))
                             target_det_center = torch.round(target_det_center - target_center_delta).int()
-                            hm_index[target_ind] = target_det_center[0] + target_det_center[1] * W_t
+                            hm_index[target_ind] = target_det_center[0] + target_det_center[1] * W_t+t_
                     if index == 0:
                         att_hm_index_lst = []
                     att_hm_index_lst.append(hm_index[[attack_ind, target_ind]].clone())
