@@ -786,7 +786,15 @@ if __name__ == '__main__':
                       TUD-Crossing
                       Venice-1
                     '''
-        #seqs_str="TUD-Campus"
+        seqs_str="""AVG-TownCentre
+                    ETH-Crossing
+                    ETH-Jelmoli
+                    ETH-Linthescher
+                    KITTI-16
+                    KITTI-19
+                    PETS09-S2L2
+                    TUD-Crossing
+                    Venice-1"""
         data_root = '/home/zhouchengyu/Data/MOT/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
