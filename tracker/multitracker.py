@@ -678,6 +678,10 @@ class JDETracker(object):
         hm_index = inds[0][remain_inds]
         i = 0
         j = -1
+        r_w_a, r_h_a = img0_w / (136*2), img0_h / (76*2)
+        r_w_t, r_h_t = img0_w / (136*2), img0_h / (76*2)
+        r_max_a = max(r_w_a, r_h_a)
+        r_max_t = max(r_w_t, r_h_t)
         last_ad_id_features = [None for _ in range(len(id_features[0]))]
         strack_pool = copy.deepcopy(last_info['last_strack_pool'])
         ad_attack_ids = [self.multiple_ori2att[attack_id] for attack_id in attack_ids]
@@ -685,30 +689,30 @@ class JDETracker(object):
         last_attack_dets = [None] * len(ad_attack_ids)
         last_target_dets = [None] * len(ad_target_ids)
         STrack.multi_predict(strack_pool)
+        ad_info={}
+        ta_info={}
         for strack in strack_pool:
             if strack.track_id in ad_attack_ids:
                 index = ad_attack_ids.index(strack.track_id)
                 last_ad_id_features[attack_inds[index]] = strack.smooth_feat
 
                 Index_a,W_a,H_a,a_=Filter_(hm_index[attack_inds[index]])
-                r_w_a, r_h_a = img0_w / W_a, img0_h / H_a
-                r_max_a = max(r_w_a, r_h_a)
+                ad_info[strack.track_id]=[W_a,H_a,a_]
 
                 last_attack_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
-                last_attack_det[index][[0, 2]] = (last_attack_det[index][[0, 2]] - 0.5 * W_a * (r_w_a - r_max_a)) / r_max_a
-                last_attack_det[index][[1, 3]] = (last_attack_det[index][[1, 3]] - 0.5 * H_a * (r_h_a - r_max_a)) / r_max_a
+                last_attack_det[index][[0, 2]] = (last_attack_det[index][[0, 2]] - 0.5 * (136*2) * (r_w_a - r_max_a)) / r_max_a
+                last_attack_det[index][[1, 3]] = (last_attack_det[index][[1, 3]] - 0.5 * (76*2) * (r_h_a - r_max_a)) / r_max_a
             if strack.track_id in ad_target_ids:
                 index = ad_target_ids.index(strack.track_id)
                 last_ad_id_features[target_inds[index]] = strack.smooth_feat
 
                 Index_t,W_t,H_t,t_=Filter_(hm_index[target_inds[index]])
-                r_w_t, r_h_t = img0_w / W_t, img0_h / H_t
-                r_max_t = max(r_w_t, r_h_t)
+                ta_info[strack.track_id]=[W_t,H_t,t_]
 
 
                 last_target_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
-                last_attack_det[index][[0, 2]] = (last_attack_det[index][[0, 2]] - 0.5 * W_a * (r_w_t - r_max_t)) / r_max_t
-                last_attack_det[index][[1, 3]] = (last_attack_det[index][[1, 3]] - 0.5 * H_a * (r_h_t - r_max_t)) / r_max_t
+                last_attack_det[index][[0, 2]] = (last_attack_det[index][[0, 2]] - 0.5 * (136*2) * (r_w_t - r_max_t)) / r_max_t
+                last_attack_det[index][[1, 3]] = (last_attack_det[index][[1, 3]] - 0.5 * (76*2) * (r_h_t - r_max_t)) / r_max_t
 
         last_attack_dets_center = []
         for det in last_attack_dets:
@@ -734,6 +738,7 @@ class JDETracker(object):
             target_ind = target_inds[ind]
             ori_hm_index_re_lst.append(hm_index[[target_ind, attack_ind]].clone())
         att_hm_index_lst = []
+        info_=[]
         best_i = None
         best_noise = None
         best_fail = np.inf
@@ -763,25 +768,33 @@ class JDETracker(object):
                                               id_feature[target_ind:target_ind + 1].T).squeeze()
 
                 if i in [10, 20, 30, 35, 40, 45, 50, 55]:
-                    Index_a,W_a,H_a,a_=Filter_(hm_index[attack_ind])
-                    Index_t,W_t,H_t,t_=Filter_(hm_index[target_ind])
                     attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                     target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
                     if last_target_dets_center[index] is not None:
+                        W_a,H_a,a_=ad_info[attack_id]
+                        Threshold_a=4/(W_a/68)
+                        attack_det_center=attack_det_center*Threshold_a
+
                         attack_center_delta = attack_det_center - last_target_dets_center[index]
                         if torch.max(torch.abs(attack_center_delta)) > 1:
                             attack_center_delta /= torch.max(torch.abs(attack_center_delta))
-                            attack_det_center = torch.round(attack_det_center - attack_center_delta).int()
+                            attack_det_center =torch.round((attack_det_center - attack_center_delta)/Threshold_a).int()
                             hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a+a_
                     if last_attack_dets_center[index] is not None:
+                        W_t,H_t,t_=ta_info[target_id]
+                        Threshold_t=4/(W_t/68)
+                        target_det_center=target_det_center*Threshold_t
+
                         target_center_delta = target_det_center - last_attack_dets_center[index]
                         if torch.max(torch.abs(target_center_delta)) > 1:
                             target_center_delta /= torch.max(torch.abs(target_center_delta))
-                            target_det_center = torch.round(target_det_center - target_center_delta).int()
+                            target_det_center =torch.round((target_det_center - target_center_delta)/Threshold_t).int()
                             hm_index[target_ind] = target_det_center[0] + target_det_center[1] * W_t+t_
                     if index == 0:
                         att_hm_index_lst = []
+                        info_=[]
                     att_hm_index_lst.append(hm_index[[attack_ind, target_ind]].clone())
+                    info_.append([a_,t_])
 
             loss += loss_feat / len(id_features)
             # loss -= mse(im_blob, im_blob_ori)
@@ -791,16 +804,17 @@ class JDETracker(object):
                 n_att_hm_index_lst = []
                 n_ori_hm_index_re_lst = []
                 for lst_ind in range(len(att_hm_index_lst)):
+                    a_,t_=info_[lst_ind]
                     for hm_ind in range(len(att_hm_index_lst[lst_ind])):
                         for n_i in range(3):
                             for n_j in range(3):
                                 att_hm_ind = att_hm_index_lst[lst_ind][hm_ind].item()
                                 att_hm_ind = att_hm_ind + (n_i - 1) * W_a + (n_j - 1)
-                                att_hm_ind = max(0, min(H_a*W_a-1, att_hm_ind))
+                                att_hm_ind = max(a_, min(H_a*W_a-1+a_, att_hm_ind))
                                 n_att_hm_index_lst.append(att_hm_ind)
                                 ori_hm_ind = ori_hm_index_re_lst[lst_ind][hm_ind].item()
                                 ori_hm_ind = ori_hm_ind + (n_i - 1) * W_t + (n_j - 1)
-                                ori_hm_ind = max(0, min(H_t * W_t - 1, ori_hm_ind))
+                                ori_hm_ind = max(t_, min(H_t * W_t - 1+t_, ori_hm_ind))
                                 n_ori_hm_index_re_lst.append(ori_hm_ind)
                 # print(n_att_hm_index, n_ori_hm_index_re)
                 boxes=outputs[0,:,:4]
@@ -1109,6 +1123,10 @@ class JDETracker(object):
             #scale_coords(self.opt.img_size, dets[:, :4], img0.shape).round()
         # for i in range(len(id_features)):
         #     id_features[i] = id_features[i][remain_inds]
+        else:
+            dets=np.zeros((1,4))
+            detections = []
+            remain_inds=torch.tensor([]).long()
 
         ious = bbox_ious(np.ascontiguousarray(dets_[:, :4], dtype=np.float64),
                          np.ascontiguousarray(dets[:, :4], dtype=np.float64))
@@ -1645,6 +1663,10 @@ class JDETracker(object):
             # Final proposals are obtained in dets. Information of bounding box and embeddings also included
             # Next step changes the detection scales
             #(self.opt.img_size, dets[:, :4], img0.shape).round()
+        else:
+            detections = []
+            dets=np.zeros((1,4))
+            remain_inds=torch.tensor([]).long()
         for i in range(len(id_features)):
             id_features[i] = id_features[i][remain_inds]
         id_feature=id_feature[remain_inds]
