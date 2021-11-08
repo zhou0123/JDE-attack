@@ -914,6 +914,8 @@ class JDETracker(object):
         #     id_features[i] = id_features[i][remain_inds]
         else:
             dets=np.zeros((1,4))
+            detections = []
+            remain_inds=torch.tensor([]).long()
 
         
         if target_ind is None:
@@ -1358,6 +1360,11 @@ class JDETracker(object):
             # Final proposals are obtained in dets. Information of bounding box and embeddings also included
             # Next step changes the detection scales
             #(self.opt.img_size, dets[:, :4], img0.shape).round()
+        else:
+            detections = []
+            dets=np.zeros((1,4))
+            remain_inds=torch.tensor([]).long()
+
         for i in range(len(id_features)):
             id_features[i] = id_features[i][remain_inds]
         id_feature=id_feature[remain_inds]
@@ -2758,6 +2765,7 @@ class JDETracker(object):
                           (tlbrs, f) in zip(dets[:, :5], dets[:, 6:])]
         else:
             detections = []
+            dets=np.zeros((1,4))
             remain_inds=torch.tensor([]).long()
             
         t2 = time.time()
