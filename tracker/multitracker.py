@@ -540,8 +540,8 @@ class JDETracker(object):
                 attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                 target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
                 
-                Threshold_a=8/(W_a/68)
-                Threshold_t=8/(W_t/68)
+                Threshold_a=4/(W_a/68)
+                Threshold_t=4/(W_t/68)
                 attack_det_center=attack_det_center*Threshold_a
                 target_det_center=target_det_center*Threshold_t
                 if last_target_det_center is not None:
