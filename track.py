@@ -810,7 +810,11 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
-        #seqs_str ="""MOT17-01-SDP"""
+        seqs_str ="""MOT17-06-SDP
+                    MOT17-07-SDP
+                    MOT17-08-SDP
+                    MOT17-12-SDP
+                    MOT17-14-SDP"""
         data_root = '/home/zhouchengyu/Data/MOT/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
