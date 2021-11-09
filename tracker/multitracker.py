@@ -935,8 +935,7 @@ class JDETracker(object):
         # for i in range(len(id_features)):
         #     id_features[i] = id_features[i][remain_inds]
         else:
-            dets=np.zeros((1,4))
-            detections = []
+            dets=np.array([])
             remain_inds=torch.tensor([]).long()
 
         
@@ -1132,8 +1131,7 @@ class JDETracker(object):
         # for i in range(len(id_features)):
         #     id_features[i] = id_features[i][remain_inds]
         else:
-            dets=np.zeros((1,4))
-            detections = []
+            dets=np.array([])
             remain_inds=torch.tensor([]).long()
 
         ious = bbox_ious(np.ascontiguousarray(dets_[:, :4], dtype=np.float64),
@@ -1387,8 +1385,7 @@ class JDETracker(object):
             # Next step changes the detection scales
             #(self.opt.img_size, dets[:, :4], img0.shape).round()
         else:
-            detections = []
-            dets=np.zeros((1,4))
+            dets=np.array([])
             remain_inds=torch.tensor([]).long()
 
         for i in range(len(id_features)):
@@ -1672,8 +1669,7 @@ class JDETracker(object):
             # Next step changes the detection scales
             #(self.opt.img_size, dets[:, :4], img0.shape).round()
         else:
-            detections = []
-            dets=np.zeros((1,4))
+            dets=np.array([])
             remain_inds=torch.tensor([]).long()
         for i in range(len(id_features)):
             id_features[i] = id_features[i][remain_inds]
