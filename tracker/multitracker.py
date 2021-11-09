@@ -689,15 +689,15 @@ class JDETracker(object):
         last_attack_dets = [None] * len(ad_attack_ids)
         last_target_dets = [None] * len(ad_target_ids)
         STrack.multi_predict(strack_pool)
-        ad_info={}
-        ta_info={}
+        ad_info=[None] * len(ad_attack_ids)
+        ta_info=[None] * len(ad_target_ids)
         for strack in strack_pool:
             if strack.track_id in ad_attack_ids:
                 index = ad_attack_ids.index(strack.track_id)
                 last_ad_id_features[attack_inds[index]] = strack.smooth_feat
 
                 Index_a,W_a,H_a,a_=Filter_(hm_index[attack_inds[index]])
-                ad_info[attack_inds[index]]=[Index_a,W_a,H_a,a_]
+                ad_info[index]=[Index_a,W_a,H_a,a_]
 
                 last_attack_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
                 last_attack_dets[index][[0, 2]] = (last_attack_dets[index][[0, 2]] - 0.5 * (136*2) * (r_w_a - r_max_a)) / r_max_a
@@ -707,7 +707,7 @@ class JDETracker(object):
                 last_ad_id_features[target_inds[index]] = strack.smooth_feat
 
                 Index_t,W_t,H_t,t_=Filter_(hm_index[target_inds[index]])
-                ta_info[target_inds[index]]=[Index_t,W_t,H_t,t_]
+                ta_info[index]=[Index_t,W_t,H_t,t_]
 
                 last_target_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
                 last_target_dets[index][[0, 2]] = (last_target_dets[index][[0, 2]] - 0.5 * (136*2) * (r_w_t - r_max_t)) / r_max_t
@@ -755,14 +755,13 @@ class JDETracker(object):
                 
                 for id_i, id_feature in enumerate(id_features):
                     if last_ad_id_features[attack_ind] is not None:
-                        Index_a,W_a,H_a,a_=ad_info[attack_ind]
+                        
                         last_ad_id_feature = torch.from_numpy(last_ad_id_features[attack_ind]).unsqueeze(0).cuda()
                         sim_1 = torch.mm(id_feature[attack_ind:attack_ind + 1], last_ad_id_feature.T).squeeze()
                         sim_2 = torch.mm(id_feature[target_ind:target_ind + 1], last_ad_id_feature.T).squeeze()
                         # loss_feat += sim_2 - sim_1
                         loss_feat += torch.clamp(sim_2 - sim_1, max=0.2)
                     if last_ad_id_features[target_ind] is not None:
-                        Index_t,W_t,H_t,t_=ta_info[target_ind]
                         last_ad_id_feature = torch.from_numpy(last_ad_id_features[target_ind]).unsqueeze(0).cuda()
                         sim_1 = torch.mm(id_feature[target_ind:target_ind + 1], last_ad_id_feature.T).squeeze()
                         sim_2 = torch.mm(id_feature[attack_ind:attack_ind + 1], last_ad_id_feature.T).squeeze()
@@ -773,9 +772,11 @@ class JDETracker(object):
                                               id_feature[target_ind:target_ind + 1].T).squeeze()
 
                 if i in [10, 20, 30, 35, 40, 45, 50, 55]:
-                    attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
-                    target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
+                    
+                    
                     if last_target_dets_center[index] is not None:
+                        Index_a,W_a,H_a,a_=ad_info[index]
+                        attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                         
                         Threshold_a=4/(W_a/68)
                         attack_det_center=attack_det_center*Threshold_a
@@ -786,7 +787,8 @@ class JDETracker(object):
                             attack_det_center =torch.round((attack_det_center - attack_center_delta)/Threshold_a).int()
                             hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a+a_
                     if last_attack_dets_center[index] is not None:
-                        
+                        Index_t,W_t,H_t,t_=ta_info[index]
+                        target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
 
                         Threshold_t=4/(W_t/68)
                         target_det_center=target_det_center*Threshold_t
