@@ -489,6 +489,54 @@ class JDETracker(object):
 
         return noise, 1, suc
 
+    def ifgsm_adam_mt_random(
+            self,
+            indsx,
+            in_,
+            im_blob,
+            img0,
+            id_features,
+            dets,
+            inds,
+            remain_inds,
+            last_info,
+            outputs_ori,
+            attack_ids,
+            attack_inds,
+            target_ids,
+            target_inds,
+            lr=0.001,
+            beta_1=0.9,
+            beta_2=0.999
+    ):
+        im_blob_ori = im_blob.clone().data
+
+        suc = False
+
+        noise = torch.rand(im_blob_ori.size()).to(im_blob_ori.device)
+        noise /= (noise ** 2).sum().sqrt()
+        noise *= random.uniform(2, 8)
+
+        im_blob = torch.clip(im_blob_ori + noise, min=0, max=1).data
+        id_features, outputs, fail_ids = self.forwardFeatureMt(
+            indsx,
+            in_,
+            im_blob,
+            img0,
+            dets,
+            inds,
+            remain_inds,
+            attack_ids,
+            attack_inds,
+            target_ids,
+            target_inds,
+            last_info
+        )
+        if fail_ids == 0:
+            suc = True
+
+        return noise, 1, suc
+
     def ifgsm_adam_sg(
             self,
             indsx,
@@ -1940,23 +1988,40 @@ class JDETracker(object):
                 target_ids = np.array(target_ids)[fit_index]
                 attack_inds = np.array(attack_inds)[fit_index]
                 target_inds = np.array(target_inds)[fit_index]
-
-                noise, attack_iter, suc = self.ifgsm_adam_mt(
-                    indsx,
-                    in_,
-                    im_blob,
-                    img0,
-                    id_features,
-                    dets,
-                    inds,
-                    remain_inds,
-                    last_info=self.ad_last_info,
-                    outputs_ori=output,
-                    attack_ids=attack_ids,
-                    attack_inds=attack_inds,
-                    target_ids=target_ids,
-                    target_inds=target_inds
-                )
+                if self.opt.rand:
+                    noise, attack_iter, suc = self.ifgsm_adam_mt_random(
+                        indsx,
+                        in_,
+                        im_blob,
+                        img0,
+                        id_features,
+                        dets,
+                        inds,
+                        remain_inds,
+                        last_info=self.ad_last_info,
+                        outputs_ori=output,
+                        attack_ids=attack_ids,
+                        attack_inds=attack_inds,
+                        target_ids=target_ids,
+                        target_inds=target_inds
+                    )
+                else:
+                    noise, attack_iter, suc = self.ifgsm_adam_mt(
+                        indsx,
+                        in_,
+                        im_blob,
+                        img0,
+                        id_features,
+                        dets,
+                        inds,
+                        remain_inds,
+                        last_info=self.ad_last_info,
+                        outputs_ori=output,
+                        attack_ids=attack_ids,
+                        attack_inds=attack_inds,
+                        target_ids=target_ids,
+                        target_inds=target_inds
+                    )
                 self.low_iou_ids.update(set(attack_ids))
                 if suc:
                     self.attacked_ids.update(set(attack_ids))
