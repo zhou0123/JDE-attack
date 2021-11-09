@@ -311,8 +311,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
     imgRoot = os.path.join(root, 'image')
     noiseRoot = os.path.join(root, 'noise')
     for path, img, img0 in dataloader:
-        if frame_id % 2000 == 0:
-            logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1./max(1e-5, timer.average_time)))
+        # if frame_id % 20 == 0:
+        #     logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1./max(1e-5, timer.average_time)))
         sg_track_outputs = {}
         # run tracking
         timer.tic()
@@ -343,7 +343,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                         if attack_id not in att_frequency_ids:
                             att_frequency_ids[attack_id] = 0
                         att_frequency_ids[attack_id] += 1
-                        if att_frequency_ids[attack_id] > 30:
+                        if att_frequency_ids[attack_id] > 50:
                             continue
                     if attack_id not in trackers_dic:
                         trackers_dic[attack_id] = JDETracker(
