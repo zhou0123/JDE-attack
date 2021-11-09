@@ -751,7 +751,7 @@ def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='track.py')
-    parser.add_argument('--cfg', type=str, default='cfg/yolov3.cfg', help='cfg file path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov3_1088x608.cfg', help='cfg file path')
     parser.add_argument('--weights', type=str, default='weights/latest.pt', help='path to weights file')
     parser.add_argument('--iou-thres', type=float, default=0.5, help='iou threshold required to qualify as detected')
     parser.add_argument('--conf-thres', type=float, default=0.5, help='object confidence threshold')
@@ -767,7 +767,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', type=str, default='/home/zhouchengyu/Data/')
     parser.add_argument('--output_dir', type=str, default='/home/zhouchengyu/noise/data')
     parser.add_argument('--test_mot15', default=False, help='test mot16')
-    parser.add_argument('--test_mot17', default=True, help='test mot17')
+    parser.add_argument('--test_mot17', default=False, help='test mot17')
     parser.add_argument('--test_mot20', default=False, help='test mot20')
     parser.add_argument('--no_f_noise', action='store_true')
     opt = parser.parse_args()
@@ -786,22 +786,22 @@ if __name__ == '__main__':
                       TUD-Crossing
                       Venice-1
                     '''
-        seqs_str="""AVG-TownCentre
-                    ETH-Crossing
-                    ETH-Jelmoli
-                    ETH-Linthescher
-                    KITTI-16
-                    KITTI-19
-                    PETS09-S2L2
-                    TUD-Crossing
-                    Venice-1"""
-        data_root = '/home/zhouchengyu/Data/MOT/MOT15/images/test/'
+        # seqs_str="""AVG-TownCentre
+        #             ETH-Crossing
+        #             ETH-Jelmoli
+        #             ETH-Linthescher
+        #             KITTI-16
+        #             KITTI-19
+        #             PETS09-S2L2
+        #             TUD-Crossing
+        #             Venice-1"""
+        data_root = '/home/popzq/Data/MOT/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
                       MOT20-07
                       MOT20-08'''
-        data_root = '/home/zhouchengyu/Data/MOT/MOT20/images/test/'
+        data_root = '/home/popzq/Data/MOT/MOT20/images/test/'
     elif opt.test_mot17:
         seqs_str = '''MOT17-01-SDP
                       MOT17-03-SDP
@@ -810,12 +810,12 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
-        seqs_str ="""MOT17-06-SDP
-                    MOT17-07-SDP
-                    MOT17-08-SDP
-                    MOT17-12-SDP
-                    MOT17-14-SDP"""
-        data_root = '/home/zhouchengyu/Data/MOT/MOT17/images/test/'
+        # seqs_str ="""MOT17-06-SDP
+        #             MOT17-07-SDP
+        #             MOT17-08-SDP
+        #             MOT17-12-SDP
+        #             MOT17-14-SDP"""
+        data_root = '/home/popzq/Data/MOT/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
     main(opt,
