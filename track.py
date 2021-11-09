@@ -279,6 +279,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
     frequency_ids = {}
     trackers_dic = {}
     suc_frequency_ids = {}
+    att_frequency_ids = {}
 
     tracked_stracks = []
     lost_stracks = []
@@ -338,6 +339,12 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                 for attack_id in need_attack_ids:
                     if attack_id in suc_attacked_ids:
                         continue
+                    if opt.rand:
+                        if attack_id not in att_frequency_ids:
+                            att_frequency_ids[attack_id] = 0
+                        att_frequency_ids[attack_id] += 1
+                        if att_frequency_ids[attack_id] > 30:
+                            continue
                     if attack_id not in trackers_dic:
                         trackers_dic[attack_id] = JDETracker(
                             opt,
@@ -525,9 +532,9 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
             os.makedirs(os.path.split(noisePath)[0], exist_ok=True)
             if opt.attack == 'single' and opt.attack_id == -1:
                 for key in sg_track_outputs.keys():
-                    cv2.imwrite(imgPath.replace('.jpg', f'_{key}.jpg'), sg_track_outputs[key]['adImg'])
-                    if sg_track_outputs[key]['noise'] is not None:
-                        cv2.imwrite(noisePath.replace('.jpg', f'_{key}.jpg'), sg_track_outputs[key]['noise'])
+                    # cv2.imwrite(imgPath.replace('.jpg', f'_{key}.jpg'), sg_track_outputs[key]['adImg'])
+                    # if sg_track_outputs[key]['noise'] is not None:
+                    #     cv2.imwrite(noisePath.replace('.jpg', f'_{key}.jpg'), sg_track_outputs[key]['noise'])
                     online_tlwhs_att = []
                     online_ids_att = []
                     for t in sg_track_outputs[key]['output_stracks_att']:
@@ -770,6 +777,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_mot17', default=False, help='test mot17')
     parser.add_argument('--test_mot20', default=False, help='test mot20')
     parser.add_argument('--no_f_noise', action='store_true')
+    parser.add_argument('--rand', action='store_true')
     opt = parser.parse_args()
     print(opt, end='\n\n')
  

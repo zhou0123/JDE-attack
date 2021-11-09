@@ -443,6 +443,52 @@ class JDETracker(object):
                 indSet.add(j)
         return ious
 
+    def ifgsm_adam_sg_random(
+            self,
+            indsx,
+            in_,
+            im_blob,
+            img0,
+            id_features,
+            dets,
+            inds,
+            remain_inds,
+            last_info,
+            outputs_ori,
+            attack_id,
+            attack_ind,
+            target_id,
+            target_ind,
+            lr=0.1,
+            beta_1=0.9,
+            beta_2=0.999
+    ):
+        im_blob_ori = im_blob.clone().data
+        suc = False
+        noise = torch.rand(im_blob_ori.size()).to(im_blob_ori.device)
+        noise /= (noise ** 2).sum().sqrt()
+        noise *= random.uniform(2, 8)
+
+        im_blob = torch.clip(im_blob_ori + noise, min=0, max=1).data
+        id_features_, outputs_, ae_attack_id, ae_target_id, hm_index_ = self.forwardFeatureSg(
+            indsx,
+            in_,
+            im_blob,
+            img0,
+            dets,
+            inds,
+            remain_inds,
+            attack_id,
+            attack_ind,
+            target_id,
+            target_ind,
+            last_info
+        )
+        if ae_attack_id != attack_id and ae_attack_id is not None:
+            suc = True
+
+        return noise, 1, suc
+
     def ifgsm_adam_sg(
             self,
             indsx,
@@ -1553,22 +1599,40 @@ class JDETracker(object):
                             target_ind = np.argmin(dis[attack_ind])
                         target_id = dets_ids[target_ind]
                         if fit:
-                            noise, attack_iter, suc = self.ifgsm_adam_sg(
-                                indsx,
-                                in_,
-                                im_blob,
-                                img0,
-                                id_features,
-                                dets,
-                                inds,
-                                remain_inds,
-                                last_info=self.ad_last_info,
-                                outputs_ori=output,
-                                attack_id=attack_id,
-                                attack_ind=attack_ind,
-                                target_id=target_id,
-                                target_ind=target_ind
-                            )
+                            if self.opt.rand:
+                                noise, attack_iter, suc = self.ifgsm_adam_sg_random(
+                                    indsx,
+                                    in_,
+                                    im_blob,
+                                    img0,
+                                    id_features,
+                                    dets,
+                                    inds,
+                                    remain_inds,
+                                    last_info=self.ad_last_info,
+                                    outputs_ori=output,
+                                    attack_id=attack_id,
+                                    attack_ind=attack_ind,
+                                    target_id=target_id,
+                                    target_ind=target_ind
+                                )
+                            else:
+                                noise, attack_iter, suc = self.ifgsm_adam_sg(
+                                    indsx,
+                                    in_,
+                                    im_blob,
+                                    img0,
+                                    id_features,
+                                    dets,
+                                    inds,
+                                    remain_inds,
+                                    last_info=self.ad_last_info,
+                                    outputs_ori=output,
+                                    attack_id=attack_id,
+                                    attack_ind=attack_ind,
+                                    target_id=target_id,
+                                    target_ind=target_ind
+                                )
                             self.attack_iou_thr = 0
                             if suc:
                                 suc = 1
