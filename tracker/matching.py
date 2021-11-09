@@ -90,6 +90,9 @@ def embedding_distance(tracks, detections, metric='cosine'):
         return cost_matrix
     det_features = np.asarray([track.curr_feat for track in detections], dtype=np.float)
     track_features = np.asarray([track.smooth_feat for track in tracks], dtype=np.float)
+    #print(len(det_features.shape))
+    if len(det_features.shape)!=2:
+        det_features=torch.zeros_like(track_features)
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features)) # Nomalized features
 
     return cost_matrix
@@ -104,6 +107,8 @@ def fuse_motion(kf, cost_matrix, tracks, detections, only_position=False, lambda
     for row, track in enumerate(tracks):
         gating_distance = kf.gating_distance(
             track.mean, track.covariance, measurements, only_position, metric='maha')
+        if len(gating_distance.shape)!=1:
+            continue
         cost_matrix[row, gating_distance > gating_threshold] = np.inf
         cost_matrix[row] = lambda_ * cost_matrix[row] + (1-lambda_)* gating_distance
     return cost_matrix

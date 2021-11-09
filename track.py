@@ -786,16 +786,9 @@ if __name__ == '__main__':
                       TUD-Crossing
                       Venice-1
                     '''
-        seqs_str="""AVG-TownCentre
-                    ETH-Crossing
-                    ETH-Jelmoli
-                    ETH-Linthescher
-                    KITTI-16
-                    KITTI-19
-                    PETS09-S2L2
-                    TUD-Crossing
-                    Venice-1"""
-        data_root = '/home/zhouchengyu/Data/MOT/MOT15/images/test/'
+        seqs_str="""KITTI-19
+                   """
+        data_root = '/home/popzq/Data/MOT/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
@@ -815,7 +808,7 @@ if __name__ == '__main__':
                     MOT17-08-SDP
                     MOT17-12-SDP
                     MOT17-14-SDP"""
-        data_root = '/home/zhouchengyu/Data/MOT/MOT17/images/test/'
+        data_root = '/home/popzq/Data/MOT/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
     main(opt,
