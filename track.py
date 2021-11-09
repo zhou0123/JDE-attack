@@ -311,8 +311,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
     imgRoot = os.path.join(root, 'image')
     noiseRoot = os.path.join(root, 'noise')
     for path, img, img0 in dataloader:
-        # if frame_id % 20 == 0:
-        #     logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1./max(1e-5, timer.average_time)))
+        if frame_id % 20 == 0:
+            logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1./max(1e-5, timer.average_time)))
         sg_track_outputs = {}
         # run tracking
         timer.tic()
@@ -549,9 +549,9 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                     sg_track_outputs[key]['online_tlwhs_att'] = online_tlwhs_att
                     sg_track_outputs[key]['online_ids_att'] = online_ids_att
             else:
-                cv2.imwrite(imgPath, adImg)
-                if noise is not None:
-                    cv2.imwrite(noisePath, noise)
+                # cv2.imwrite(imgPath, adImg)
+                # if noise is not None:
+                #     cv2.imwrite(noisePath, noise)
 
                 online_tlwhs_att = []
                 online_ids_att = []
@@ -794,22 +794,14 @@ if __name__ == '__main__':
                       TUD-Crossing
                       Venice-1
                     '''
-        # seqs_str="""AVG-TownCentre
-        #             ETH-Crossing
-        #             ETH-Jelmoli
-        #             ETH-Linthescher
-        #             KITTI-16
-        #             KITTI-19
-        #             PETS09-S2L2
-        #             TUD-Crossing
-        #             Venice-1"""
-        data_root = '/home/popzq/Data/MOT/MOT15/images/test/'
+        # seqs_str="""KITTI-19"""
+        data_root = '/home/derry/Data/MOT/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
                       MOT20-07
                       MOT20-08'''
-        data_root = '/home/popzq/Data/MOT/MOT20/images/test/'
+        data_root = '/home/derry/Data/MOT/MOT20/images/test/'
     elif opt.test_mot17:
         seqs_str = '''MOT17-01-SDP
                       MOT17-03-SDP
@@ -823,7 +815,7 @@ if __name__ == '__main__':
         #             MOT17-08-SDP
         #             MOT17-12-SDP
         #             MOT17-14-SDP"""
-        data_root = '/home/popzq/Data/MOT/MOT17/images/test/'
+        data_root = '/home/derry/Data/MOT/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
     main(opt,
