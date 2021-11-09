@@ -89,6 +89,7 @@ def embedding_distance(tracks, detections, metric='cosine'):
     if cost_matrix.size == 0:
         return cost_matrix
     det_features = np.asarray([track.curr_feat for track in detections], dtype=np.float)
+    print(det_features)
     track_features = np.asarray([track.smooth_feat for track in tracks], dtype=np.float)
     #print(len(det_features.shape))
     # if len(det_features.shape)!=2:
