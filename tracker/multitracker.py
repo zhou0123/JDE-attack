@@ -697,7 +697,7 @@ class JDETracker(object):
                 last_ad_id_features[attack_inds[index]] = strack.smooth_feat
 
                 Index_a,W_a,H_a,a_=Filter_(hm_index[attack_inds[index]])
-                ad_info[index]=[Index_a,W_a,H_a,a_]
+                ta_info[index]=[Index_a,W_a,H_a,a_]
 
                 last_attack_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
                 last_attack_dets[index][[0, 2]] = (last_attack_dets[index][[0, 2]] - 0.5 * (136*2) * (r_w_a - r_max_a)) / r_max_a
@@ -707,7 +707,7 @@ class JDETracker(object):
                 last_ad_id_features[target_inds[index]] = strack.smooth_feat
 
                 Index_t,W_t,H_t,t_=Filter_(hm_index[target_inds[index]])
-                ta_info[index]=[Index_t,W_t,H_t,t_]
+                ad_info[index]=[Index_t,W_t,H_t,t_]
 
                 last_target_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
                 last_target_dets[index][[0, 2]] = (last_target_dets[index][[0, 2]] - 0.5 * (136*2) * (r_w_t - r_max_t)) / r_max_t
