@@ -697,7 +697,7 @@ class JDETracker(object):
                 last_ad_id_features[attack_inds[index]] = strack.smooth_feat
 
                 Index_a,W_a,H_a,a_=Filter_(hm_index[attack_inds[index]])
-                ad_info[strack.track_id]=[Index_a,W_a,H_a,a_]
+                ad_info[attack_inds[index]]=[Index_a,W_a,H_a,a_]
 
                 last_attack_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
                 last_attack_dets[index][[0, 2]] = (last_attack_dets[index][[0, 2]] - 0.5 * (136*2) * (r_w_a - r_max_a)) / r_max_a
@@ -707,8 +707,7 @@ class JDETracker(object):
                 last_ad_id_features[target_inds[index]] = strack.smooth_feat
 
                 Index_t,W_t,H_t,t_=Filter_(hm_index[target_inds[index]])
-                ta_info[strack.track_id]=[Index_t,W_t,H_t,t_]
-
+                ta_info[target_inds[index]]=[Index_t,W_t,H_t,t_]
 
                 last_target_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
                 last_target_dets[index][[0, 2]] = (last_target_dets[index][[0, 2]] - 0.5 * (136*2) * (r_w_t - r_max_t)) / r_max_t
@@ -750,18 +749,20 @@ class JDETracker(object):
                 target_id = target_ids[index]
                 attack_ind = attack_inds[index]
                 target_ind = target_inds[index]
-                Index_a,W_a,H_a,a_=ad_info[self.multiple_ori2att[attack_id]]
-                Index_t,W_t,H_t,t_=ta_info[self.multiple_ori2att[target_id]]
+                
+                
                 
                 
                 for id_i, id_feature in enumerate(id_features):
                     if last_ad_id_features[attack_ind] is not None:
+                        Index_a,W_a,H_a,a_=ad_info[attack_ind]
                         last_ad_id_feature = torch.from_numpy(last_ad_id_features[attack_ind]).unsqueeze(0).cuda()
                         sim_1 = torch.mm(id_feature[attack_ind:attack_ind + 1], last_ad_id_feature.T).squeeze()
                         sim_2 = torch.mm(id_feature[target_ind:target_ind + 1], last_ad_id_feature.T).squeeze()
                         # loss_feat += sim_2 - sim_1
                         loss_feat += torch.clamp(sim_2 - sim_1, max=0.2)
                     if last_ad_id_features[target_ind] is not None:
+                        Index_t,W_t,H_t,t_=ta_info[target_ind]
                         last_ad_id_feature = torch.from_numpy(last_ad_id_features[target_ind]).unsqueeze(0).cuda()
                         sim_1 = torch.mm(id_feature[target_ind:target_ind + 1], last_ad_id_feature.T).squeeze()
                         sim_2 = torch.mm(id_feature[attack_ind:attack_ind + 1], last_ad_id_feature.T).squeeze()
