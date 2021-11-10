@@ -592,36 +592,36 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
     # # save results
     # write_results(result_filename, results, data_type)
     # return frame_id, timer.average_time, timer.calls
-        if show_image or save_dir is not None:
-            if opt.attack == 'single' and opt.attack_id == -1:
-                for key in sg_track_outputs.keys():
-                    img0 = sg_track_outputs[key]['adImg'].astype(np.uint8)
-                    sg_track_outputs[key]['online_im'] = vis.plot_tracking(
-                        img0,
-                        sg_track_outputs[key]['online_tlwhs_att'],
-                        sg_track_outputs[key]['online_ids_att'],
-                        frame_id=frame_id,
-                        fps=1. / timer.average_time
-                    )
-                online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
-                                              fps=1. / timer.average_time)
-            elif opt.attack:
-                img0 = adImg.astype(np.uint8)
-                online_im = vis.plot_tracking(img0, online_tlwhs_att, online_ids_att, frame_id=frame_id,
-                                              fps=1. / timer.average_time)
-            else:
-                online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
-                                              fps=1. / timer.average_time)
+    #     if show_image or save_dir is not None:
+    #         if opt.attack == 'single' and opt.attack_id == -1:
+    #             for key in sg_track_outputs.keys():
+    #                 img0 = sg_track_outputs[key]['adImg'].astype(np.uint8)
+    #                 sg_track_outputs[key]['online_im'] = vis.plot_tracking(
+    #                     img0,
+    #                     sg_track_outputs[key]['online_tlwhs_att'],
+    #                     sg_track_outputs[key]['online_ids_att'],
+    #                     frame_id=frame_id,
+    #                     fps=1. / timer.average_time
+    #                 )
+    #             online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
+    #                                           fps=1. / timer.average_time)
+    #         elif opt.attack:
+    #             img0 = adImg.astype(np.uint8)
+    #             online_im = vis.plot_tracking(img0, online_tlwhs_att, online_ids_att, frame_id=frame_id,
+    #                                           fps=1. / timer.average_time)
+    #         else:
+    #             online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
+    #                                           fps=1. / timer.average_time)
         # if show_image:
         #     cv2.imshow('online_im', online_im)
-        if save_dir is not None:
-            save_dir = os.path.join(imgRoot, save_dir.replace(root_r, ''))
-            os.makedirs(save_dir, exist_ok=True)
-            if opt.attack == 'single' and opt.attack_id == -1:
-                for key in sg_track_outputs.keys():
-                    cv2.imwrite(os.path.join(save_dir, '{:05d}_{}.jpg'.format(frame_id, key)),
-                                sg_track_outputs[key]['online_im'])
-            cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
+        # if save_dir is not None:
+        #     save_dir = os.path.join(imgRoot, save_dir.replace(root_r, ''))
+        #     os.makedirs(save_dir, exist_ok=True)
+        #     if opt.attack == 'single' and opt.attack_id == -1:
+        #         for key in sg_track_outputs.keys():
+        #             cv2.imwrite(os.path.join(save_dir, '{:05d}_{}.jpg'.format(frame_id, key)),
+        #                         sg_track_outputs[key]['online_im'])
+        #     cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
         frame_id += 1
     for key in list(suc_frequency_ids.keys()):
         if suc_frequency_ids[key] == 0:
