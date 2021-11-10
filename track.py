@@ -344,7 +344,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                             att_frequency_ids[attack_id] = 0
                         att_frequency_ids[attack_id] += 1
                         if att_frequency_ids[attack_id] > 50:
-                            del trackers_dic[attack_id]
+                            if attack_id in trackers_dic:
+                                del trackers_dic[attack_id]
                             continue
                     if attack_id not in trackers_dic:
                         trackers_dic[attack_id] = JDETracker(
