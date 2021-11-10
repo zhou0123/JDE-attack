@@ -22,9 +22,6 @@ import copy
 from cython_bbox import bbox_overlaps as bbox_ious
 from scipy.optimize import linear_sum_assignment
 
-
-
-
 class Logger:
     def __init__(self, file):
         self.file = file
@@ -786,20 +783,16 @@ if __name__ == '__main__':
                       TUD-Crossing
                       Venice-1
                     '''
-        # seqs_str="""KITTI-19
-        #            """
-        data_root = '/home/popzq/Data/MOT/MOT15/images/test/'
+        seqs_str="""KITTI-19
+                   """
+        data_root = '/home/zhouchengyu/Data/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
                       MOT20-07
                       MOT20-08'''
-        seqs_str="""
-        MOT20-06
-        MOT20-07
-        MOT20-08
-        """
-        data_root = '''/home/popzq/Data/MOT/MOT20/images/test/'''
+        seqs_str="""MOT20-04"""
+        data_root = '/home/zhouchengyu/Data/MOT20/images/test/'
     elif opt.test_mot17:
         seqs_str = '''MOT17-01-SDP
                       MOT17-03-SDP
@@ -808,11 +801,12 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
-        # seqs_str ="""MOT17-01-SDP
-        #             MOT17-06-SDP
+        # seqs_str ="""MOT17-06-SDP
         #             MOT17-07-SDP
-        #             MOT17-08-SDP"""
-        data_root = '/home/popzq/pkg/MOT17/test/'
+        #             MOT17-08-SDP
+        #             MOT17-12-SDP
+        #             MOT17-14-SDP"""
+        data_root = '/home/zhouchengyu/Data/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
     main(opt,
