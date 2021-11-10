@@ -771,11 +771,9 @@ class JDETracker(object):
                                               id_feature[target_ind:target_ind + 1].T).squeeze()
 
                 if i in [10, 20, 30, 35, 40, 45, 50, 55]:
-                    aqa=0
                     
                     
                     if last_target_dets_center[index] is not None and ad_info[index] is not None :
-                        aqa+=1
                         Index_a,W_a,H_a,a_=ad_info[index]
                         attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                         
@@ -788,7 +786,6 @@ class JDETracker(object):
                             attack_det_center =torch.round((attack_det_center - attack_center_delta)/Threshold_a).int()
                             hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a+a_
                     if last_attack_dets_center[index] is not None and ta_info[index] is not None:
-                        aqa+=1
 
                         Index_t,W_t,H_t,t_=ta_info[index]
                         target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
@@ -804,8 +801,12 @@ class JDETracker(object):
                     if index == 0:
                         att_hm_index_lst = []
                         info_=[]
-                    if aqa ==0:
-                        continue
+                    if ad_info[index] is None:
+                        Index_a,W_a,H_a,a_=ta_info[index]
+                    if ta_info[index] is None:
+                        Index_t,W_t,H_t,t_=ad_info[index]
+
+
                     att_hm_index_lst.append(hm_index[[attack_ind, target_ind]].clone())
                     info_.append([a_,t_])
 
