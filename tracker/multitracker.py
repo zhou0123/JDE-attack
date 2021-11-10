@@ -697,7 +697,7 @@ class JDETracker(object):
                 last_ad_id_features[attack_inds[index]] = strack.smooth_feat
 
                 Index_a,W_a,H_a,a_=Filter_(hm_index[attack_inds[index]])
-                ta_info[index]=[Index_a,W_a,H_a,a_]
+                ad_info[index]=[Index_a,W_a,H_a,a_]
 
                 last_attack_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
                 last_attack_dets[index][[0, 2]] = (last_attack_dets[index][[0, 2]] - 0.5 * (136*2) * (r_w_a - r_max_a)) / r_max_a
@@ -707,7 +707,7 @@ class JDETracker(object):
                 last_ad_id_features[target_inds[index]] = strack.smooth_feat
 
                 Index_t,W_t,H_t,t_=Filter_(hm_index[target_inds[index]])
-                ad_info[index]=[Index_t,W_t,H_t,t_]
+                ta_info[index]=[Index_t,W_t,H_t,t_]
 
                 last_target_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
                 last_target_dets[index][[0, 2]] = (last_target_dets[index][[0, 2]] - 0.5 * (136*2) * (r_w_t - r_max_t)) / r_max_t
@@ -774,7 +774,7 @@ class JDETracker(object):
                 if i in [10, 20, 30, 35, 40, 45, 50, 55]:
                     
                     
-                    if last_target_dets_center[index] is not None:
+                    if last_target_dets_center[index] is not None and ad_info[index] is not None :
                         Index_a,W_a,H_a,a_=ad_info[index]
                         attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                         
@@ -786,7 +786,7 @@ class JDETracker(object):
                             attack_center_delta /= torch.max(torch.abs(attack_center_delta))
                             attack_det_center =torch.round((attack_det_center - attack_center_delta)/Threshold_a).int()
                             hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a+a_
-                    if last_attack_dets_center[index] is not None:
+                    if last_attack_dets_center[index] is not None and ta_info[index] is not None:
                         Index_t,W_t,H_t,t_=ta_info[index]
                         target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
 
@@ -935,7 +935,7 @@ class JDETracker(object):
         # for i in range(len(id_features)):
         #     id_features[i] = id_features[i][remain_inds]
         else:
-            dets=np.array([])
+            dets=np.zeros((0,4))
             remain_inds=torch.tensor([]).long()
 
         
@@ -1131,7 +1131,7 @@ class JDETracker(object):
         # for i in range(len(id_features)):
         #     id_features[i] = id_features[i][remain_inds]
         else:
-            dets=np.array([])
+            dets=np.zeros((0,4))
             remain_inds=torch.tensor([]).long()
 
         ious = bbox_ious(np.ascontiguousarray(dets_[:, :4], dtype=np.float64),
@@ -1385,7 +1385,7 @@ class JDETracker(object):
             # Next step changes the detection scales
             #(self.opt.img_size, dets[:, :4], img0.shape).round()
         else:
-            dets=np.array([])
+            dets=np.zeros((0,4))
             remain_inds=torch.tensor([]).long()
 
         for i in range(len(id_features)):
@@ -1669,7 +1669,7 @@ class JDETracker(object):
             # Next step changes the detection scales
             #(self.opt.img_size, dets[:, :4], img0.shape).round()
         else:
-            dets=np.array([])
+            dets=np.zeros((0,4))
             remain_inds=torch.tensor([]).long()
         for i in range(len(id_features)):
             id_features[i] = id_features[i][remain_inds]
