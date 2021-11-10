@@ -532,7 +532,7 @@ class JDETracker(object):
                     loss_feat += sim_2 - sim_1
                 if last_ad_id_features[attack_ind] is None and last_ad_id_features[target_ind] is None:
                     loss_feat += torch.mm(id_feature[0:0 + 1], id_feature[1:1 + 1].T).squeeze()
-            loss += 2*loss_feat / len(id_features)
+            loss += loss_feat / len(id_features)
             # loss -= mse(im_blob, im_blob_ori)
 
             if i in [10, 20, 30, 35, 40, 45, 50, 55]:
@@ -774,7 +774,7 @@ class JDETracker(object):
                 if i in [10, 20, 30, 35, 40, 45, 50, 55]:
                     
                     
-                    if last_target_dets_center[index] is not None and ad_info[index] is not None :
+                    if last_target_dets_center[index] is not None and ad_info[index] is not None:
                         Index_a,W_a,H_a,a_=ad_info[index]
                         attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                         
