@@ -532,7 +532,7 @@ class JDETracker(object):
                     loss_feat += sim_2 - sim_1
                 if last_ad_id_features[attack_ind] is None and last_ad_id_features[target_ind] is None:
                     loss_feat += torch.mm(id_feature[0:0 + 1], id_feature[1:1 + 1].T).squeeze()
-            loss += loss_feat / len(id_features)
+            loss += 2*loss_feat / len(id_features)
             # loss -= mse(im_blob, im_blob_ori)
 
             if i in [10, 20, 30, 35, 40, 45, 50, 55]:
@@ -712,7 +712,6 @@ class JDETracker(object):
                 last_target_dets[index] = torch.from_numpy(strack.tlbr).cuda().float()
                 last_target_dets[index][[0, 2]] = (last_target_dets[index][[0, 2]] - 0.5 * (136*2) * (r_w_t - r_max_t)) / r_max_t
                 last_target_dets[index][[1, 3]] = (last_target_dets[index][[1, 3]] - 0.5 * (76*2) * (r_h_t - r_max_t)) / r_max_t
-
         last_attack_dets_center = []
         for det in last_attack_dets:
             if det is None:
@@ -772,9 +771,11 @@ class JDETracker(object):
                                               id_feature[target_ind:target_ind + 1].T).squeeze()
 
                 if i in [10, 20, 30, 35, 40, 45, 50, 55]:
+                    aqa=0
                     
                     
-                    if last_target_dets_center[index] is not None and ad_info[index] is not None:
+                    if last_target_dets_center[index] is not None and ad_info[index] is not None :
+                        aqa+=1
                         Index_a,W_a,H_a,a_=ad_info[index]
                         attack_det_center = torch.stack([Index_a % W_a, Index_a // W_a]).float()
                         
@@ -787,6 +788,8 @@ class JDETracker(object):
                             attack_det_center =torch.round((attack_det_center - attack_center_delta)/Threshold_a).int()
                             hm_index[attack_ind] = attack_det_center[0] + attack_det_center[1] * W_a+a_
                     if last_attack_dets_center[index] is not None and ta_info[index] is not None:
+                        aqa+=1
+
                         Index_t,W_t,H_t,t_=ta_info[index]
                         target_det_center = torch.stack([Index_t % W_t, Index_t // W_t]).float()
 
@@ -801,6 +804,8 @@ class JDETracker(object):
                     if index == 0:
                         att_hm_index_lst = []
                         info_=[]
+                    if aqa ==0:
+                        continue
                     att_hm_index_lst.append(hm_index[[attack_ind, target_ind]].clone())
                     info_.append([a_,t_])
 
