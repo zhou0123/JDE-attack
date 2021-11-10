@@ -344,6 +344,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                             att_frequency_ids[attack_id] = 0
                         att_frequency_ids[attack_id] += 1
                         if att_frequency_ids[attack_id] > 50:
+                            del trackers_dic[attack_id]
                             continue
                     if attack_id not in trackers_dic:
                         trackers_dic[attack_id] = JDETracker(
@@ -592,26 +593,27 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
     # # save results
     # write_results(result_filename, results, data_type)
     # return frame_id, timer.average_time, timer.calls
-    #     if show_image or save_dir is not None:
-    #         if opt.attack == 'single' and opt.attack_id == -1:
-    #             for key in sg_track_outputs.keys():
-    #                 img0 = sg_track_outputs[key]['adImg'].astype(np.uint8)
-    #                 sg_track_outputs[key]['online_im'] = vis.plot_tracking(
-    #                     img0,
-    #                     sg_track_outputs[key]['online_tlwhs_att'],
-    #                     sg_track_outputs[key]['online_ids_att'],
-    #                     frame_id=frame_id,
-    #                     fps=1. / timer.average_time
-    #                 )
-    #             online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
-    #                                           fps=1. / timer.average_time)
-    #         elif opt.attack:
-    #             img0 = adImg.astype(np.uint8)
-    #             online_im = vis.plot_tracking(img0, online_tlwhs_att, online_ids_att, frame_id=frame_id,
-    #                                           fps=1. / timer.average_time)
-    #         else:
-    #             online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
-    #                                           fps=1. / timer.average_time)
+        if show_image or save_dir is not None:
+            if opt.attack == 'single' and opt.attack_id == -1:
+                for key in sg_track_outputs.keys():
+
+                    img0 = sg_track_outputs[key]['adImg'].astype(np.uint8)
+                    sg_track_outputs[key]['online_im'] = vis.plot_tracking(
+                        img0,
+                        sg_track_outputs[key]['online_tlwhs_att'],
+                        sg_track_outputs[key]['online_ids_att'],
+                        frame_id=frame_id,
+                        fps=1. / timer.average_time
+                    )
+                online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
+                                              fps=1. / timer.average_time)
+            elif opt.attack:
+                img0 = adImg.astype(np.uint8)
+                online_im = vis.plot_tracking(img0, online_tlwhs_att, online_ids_att, frame_id=frame_id,
+                                              fps=1. / timer.average_time)
+            else:
+                online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
+                                              fps=1. / timer.average_time)
         # if show_image:
         #     cv2.imshow('online_im', online_im)
         # if save_dir is not None:
