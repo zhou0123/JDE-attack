@@ -22,6 +22,9 @@ import copy
 from cython_bbox import bbox_overlaps as bbox_ious
 from scipy.optimize import linear_sum_assignment
 
+
+
+
 class Logger:
     def __init__(self, file):
         self.file = file
@@ -58,6 +61,8 @@ class MultipleEval:
             tracks_pair_dic[id] = dict((frame_id,-1) for frame_id in info['frames'])
 
         for frame_id,frame_info in origin_frame2id.items():
+                if frame_id not in attack_frame2id.keys():
+                    continue
                 origin_bbox_info = [ [id,bbox] for id,bbox  in frame_info.items()]
                 origin_bbox =np.array([info[1] for info in origin_bbox_info])
                 origin_id = [info[0] for info in origin_bbox_info]
@@ -502,7 +507,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                     img0,
                     name=path.replace(root_r, '')
                 )
-                if l2_dis is not None:
+                if l2_dis is not None and np.isnan(l2_dis)==False:
                     l2_distance.append(l2_dis)
                     attack_frames += 1
             elif opt.attack == 'multiple' and opt.method == 'feat':
@@ -654,7 +659,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
         total_l2_dis.extend([sum(l2_distance_sg[k]) / len(l2_distance_sg[k]) for k in suc_attacked_ids])
         out_logger(f'Total: Distribute of attacked frames: {sg_attack_frames2ids}')
     elif opt.attack == 'multiple':
-        eval_attack = MultipleEval(tracker.FRAME_THR, tracker.ATTACK_IOU_THR)
+        eval_attack = MultipleEval(10, 0.2)
         suc_attacked_ids, need_attack_ids = eval_attack(result_filename,
                                                         result_filename.replace('.txt', f'_attack.txt'))
         out_logger('@' * 50 + ' multiple attack accuracy ' + '@' * 50)
@@ -783,16 +788,15 @@ if __name__ == '__main__':
                       TUD-Crossing
                       Venice-1
                     '''
-        seqs_str="""KITTI-19
-                   """
-        data_root = '/home/zhouchengyu/Data/MOT15/images/test/'
+        seqs_str="""ADL-Rundle-3"""
+        data_root = '/home/popzq/Data/MOT/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
                       MOT20-07
                       MOT20-08'''
-        seqs_str="""MOT20-04"""
-        data_root = '/home/zhouchengyu/Data/MOT20/images/test/'
+        #seqs_str=""" MOT20-04"""
+        data_root = '/home/popzq/Data/MOT/MOT20/images/test/'
     elif opt.test_mot17:
         seqs_str = '''MOT17-01-SDP
                       MOT17-03-SDP
@@ -801,12 +805,12 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
-        # seqs_str ="""MOT17-06-SDP
-        #             MOT17-07-SDP
-        #             MOT17-08-SDP
-        #             MOT17-12-SDP
-        #             MOT17-14-SDP"""
-        data_root = '/home/zhouchengyu/Data/MOT17/images/test/'
+        seqs_str ="""MOT17-03-SDP"""
+                    # MOT17-07-SDP
+                    # MOT17-08-SDP
+                    # MOT17-12-SDP
+                    # MOT17-14-SDP
+        data_root = '/home/popzq/Data/MOT/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
     main(opt,
