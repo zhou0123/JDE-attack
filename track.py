@@ -326,6 +326,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                     if strack.track_id not in frequency_ids:
                         frequency_ids[strack.track_id] = 0
                     frequency_ids[strack.track_id] += 1
+                    if opt.rand and att_frequency_ids.get(strack.track_id, 0) > 50:
+                        continue
                     ids.append(strack.track_id)
                     dets.append(strack.curr_tlbr.reshape(1, -1))
                 if len(ids) > 0:
