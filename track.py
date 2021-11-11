@@ -327,6 +327,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                         frequency_ids[strack.track_id] = 0
                     frequency_ids[strack.track_id] += 1
                     if opt.rand and att_frequency_ids.get(strack.track_id, 0) > 50:
+                        if strack.track_id in trackers_dic:
+                            del trackers_dic[strack.track_id]
                         continue
                     ids.append(strack.track_id)
                     dets.append(strack.curr_tlbr.reshape(1, -1))
