@@ -333,8 +333,8 @@ class JDETracker(object):
         self.kalman_filter_ad = KalmanFilter()
         self.kalman_filter_ = KalmanFilter()
 
-        self.attack_sg = True
-        self.attack_mt = True
+        self.attack_sg_ = True
+        self.attack_mt_ = True
         self.attacked_ids = set([])
         self.low_iou_ids = set([])
         self.ATTACK_IOU_THR = 0.2
@@ -443,7 +443,7 @@ class JDETracker(object):
                 indSet.add(j)
         return ious
 
-    def ifgsm_adam_sg(
+    def attack_sg(
             self,
             indsx,
             in_,
@@ -651,7 +651,7 @@ class JDETracker(object):
         return noise, i, suc
 
 
-    def ifgsm_adam_mt(
+    def attack_mt(
             self,
             indsx,
             in_,
@@ -1538,7 +1538,7 @@ class JDETracker(object):
         attack = self.opt.attack
         noise = None
         suc = 0
-        if self.attack_sg:
+        if self.attack_sg_:
             for attack_ind, track_id in enumerate(dets_ids):
                 if track_id == attack_id:
                     if self.opt.attack_id > 0:
@@ -1562,7 +1562,7 @@ class JDETracker(object):
                             target_ind = np.argmin(dis[attack_ind])
                         target_id = dets_ids[target_ind]
                         if fit:
-                            noise, attack_iter, suc = self.ifgsm_adam_sg(
+                            noise, attack_iter, suc = self.attack_sg(
                                 indsx,
                                 in_,
                                 im_blob,
@@ -1843,7 +1843,7 @@ class JDETracker(object):
 
         attack = self.opt.attack
         noise = None
-        if self.attack_mt and len(dets) > 0:
+        if self.attack_mt_ and len(dets) > 0:
             ious = bbox_ious(np.ascontiguousarray(dets[:, :4], dtype=np.float64),
                              np.ascontiguousarray(dets[:, :4], dtype=np.float64))
             ious[range(len(dets)), range(len(dets))] = 0
@@ -1886,7 +1886,7 @@ class JDETracker(object):
                 attack_inds = np.array(attack_inds)[fit_index]
                 target_inds = np.array(target_inds)[fit_index]
 
-                noise, attack_iter, suc = self.ifgsm_adam_mt(
+                noise, attack_iter, suc = self.attack_mt(
                     indsx,
                     in_,
                     im_blob,
@@ -2143,7 +2143,7 @@ class JDETracker(object):
         attack = self.opt.attack
         noise = None
         suc = 0
-        if self.attack_sg:
+        if self.attack_sg_:
             for attack_ind, track_id in enumerate(dets_ids):
                 if track_id == attack_id:
                     if self.opt.attack_id > 0:
@@ -2698,7 +2698,7 @@ class JDETracker(object):
         attack = self.opt.attack
         noise = None
         suc = 0
-        if self.attack_sg:
+        if self.attack_sg_:
             for attack_ind, track_id in enumerate(dets_ids):
                 if track_id == attack_id:
                     if self.opt.attack_id > 0:
@@ -3660,7 +3660,7 @@ class JDETracker(object):
         target_inds = []
         attack = self.opt.attack
         noise = torch.zeros_like(im_blob)
-        if self.attack_mt and self.frame_id_ > 20:
+        if self.attack_mt_ and self.frame_id_ > 20:
             ious = bbox_ious(np.ascontiguousarray(dets[:, :4], dtype=np.float),
                              np.ascontiguousarray(dets[:, :4], dtype=np.float))
             ious[range(len(dets)), range(len(dets))] = 0
