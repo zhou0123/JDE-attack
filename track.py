@@ -788,14 +788,12 @@ if __name__ == '__main__':
                       TUD-Crossing
                       Venice-1
                     '''
-        seqs_str="""ADL-Rundle-3"""
         data_root = '/home/popzq/Data/MOT/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
                       MOT20-07
                       MOT20-08'''
-        #seqs_str=""" MOT20-04"""
         data_root = '/home/popzq/Data/MOT/MOT20/images/test/'
     elif opt.test_mot17:
         seqs_str = '''MOT17-01-SDP
@@ -805,11 +803,7 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
-        seqs_str ="""MOT17-03-SDP"""
-                    # MOT17-07-SDP
-                    # MOT17-08-SDP
-                    # MOT17-12-SDP
-                    # MOT17-14-SDP
+     
         data_root = '/home/popzq/Data/MOT/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
