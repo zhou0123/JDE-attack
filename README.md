@@ -58,6 +58,7 @@ python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights
 
 python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights --attack single --test_mot20 True
 ```
+Results are saved in text files in `$DATASET_ROOT/results/*.txt`. You can also add `--save-images` or `--save-videos` flags to obtain the visualized results. Visualized results are saved in `$DATASET_ROOT/outputs/`
 
 ### Multiple-Targets Attack
 
@@ -70,6 +71,7 @@ python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights
 
 python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights --attack multiple --test_mot20 True
 ```
+Results are saved in text files in `$DATASET_ROOT/results/*.txt`. You can also add `--save-images` or `--save-videos` flags to obtain the visualized results. Visualized results are saved in `$DATASET_ROOT/outputs/`
 
 ## Acknowledgement
 A large portion of code is borrowed from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) and [longcw/MOTDT](https://github.com/longcw/MOTDT), many thanks to their wonderful work!
