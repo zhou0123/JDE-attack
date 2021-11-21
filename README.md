@@ -50,12 +50,14 @@ Benefiting from the development of Deep Neural Networks, Multi-Object Tracking (
 ### Single-Target Attack
 
 * attack all attackable objects separately in videos in parallel (may require a lot of memory).
+```shell
 
 python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights --attack single --test_mot15 True
 
 python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights --attack single --test_mot17 True
 
 python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights --attack single --test_mot20 True
+```
 
 ### Multiple-Targets Attack
 
@@ -67,6 +69,7 @@ python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights
 python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights --attack multiple --test_mot17 True
 
 python track.py --cfg ./cfg/yolov3_1088x608.cfg --weights /path/to/model/weights --attack multiple --test_mot20 True
+```
 
 ## Acknowledgement
 A large portion of code is borrowed from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) and [longcw/MOTDT](https://github.com/longcw/MOTDT), many thanks to their wonderful work!
