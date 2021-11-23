@@ -8,7 +8,7 @@
 **Related Works**
 
 * [TraSw for ByteTrack](https://github.com/DerryHub/ByteTrack-attack)
-* [TraSw for Fairmot](https://github.com/DerryHub/FairMOT-attack)
+* [TraSw for FairMOT](https://github.com/DerryHub/FairMOT-attack)
 
 ## Abstract
 
