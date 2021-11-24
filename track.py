@@ -305,7 +305,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
     results_att_sg = {}
     l2_distance = []
     l2_distance_sg = {}
-    root_r = opt.data_dir
+    root_r = data_root
     root_r += '/' if root_r[-1] != '/' else ''
     root = opt.output_dir
     root += '/' if root[-1] != '/' else ''
@@ -319,8 +319,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
         timer.tic()
         blob = torch.from_numpy(img).cuda().unsqueeze(0)
         if opt.attack:
-            if opt.attack == 'single' and opt.attack_id == -1 and opt.method in ['ids', 'det']:
-                online_targets_ori = tracker.update(blob, img0, name=path.replace(root_r, ''), track_id=track_id)
+            if opt.attack == 'single' and opt.attack_id == -1:
+                online_targets_ori = tracker.update(blob, img0,track_id=track_id)
                 dets = []
                 ids = []
                 for strack in online_targets_ori:
@@ -355,22 +355,12 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                             'origin': {'track_id': track_id['track_id']},
                             'attack': {'track_id': track_id['track_id']}
                         }
-                    if opt.method == 'ids':
-                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg(
-                            blob,
-                            img0,
-                            name=path.replace(root_r, ''),
-                            attack_id=attack_id,
-                            track_id=sg_track_ids[attack_id]
-                        )
-                    else:
-                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg_det(
-                            blob,
-                            img0,
-                            name=path.replace(root_r, ''),
-                            attack_id=attack_id,
-                            track_id=sg_track_ids[attack_id]
-                        )
+                    _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg(
+                        blob,
+                        img0,
+                        attack_id=attack_id,
+                        track_id=sg_track_ids[attack_id]
+                    )
                     sg_track_outputs[attack_id] = {}
                     sg_track_outputs[attack_id]['output_stracks_att'] = output_stracks_att
                     sg_track_outputs[attack_id]['adImg'] = adImg
@@ -403,127 +393,19 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                 lost_stracks = copy.deepcopy(tracker.lost_stracks)
                 removed_stracks = copy.deepcopy(tracker.removed_stracks)
                 ad_last_info = copy.deepcopy(tracker.ad_last_info)
-            elif opt.attack == 'single' and opt.attack_id == -1 and opt.method == 'feat':
-                online_targets_ori = tracker.update(blob, img0, name=path.replace(root_r, ''), track_id=track_id)
-
-                for strack in online_targets_ori:
-                    if strack.track_id not in frequency_ids:
-                        frequency_ids[strack.track_id] = 0
-                    frequency_ids[strack.track_id] += 1
-                    if frequency_ids[strack.track_id] > tracker.FRAME_THR:
-                        need_attack_ids.add(strack.track_id)
-
-                for attack_id in need_attack_ids:
-                    if attack_id in suc_attacked_ids:
-                        continue
-                    if attack_id not in trackers_dic:
-                        trackers_dic[attack_id] = JDETracker(
-                            opt,
-                            frame_rate=frame_rate,
-                            tracked_stracks=tracked_stracks,
-                            lost_stracks=lost_stracks,
-                            removed_stracks=removed_stracks,
-                            frame_id=frame_id,
-                            ad_last_info=ad_last_info,
-                            model=model
-                        )
-                        sg_track_ids[attack_id] = {
-                            'origin': {'track_id': track_id['track_id']},
-                            'attack': {'track_id': track_id['track_id']}
-                        }
-                    _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg(
-                        blob,
-                        img0,
-                        name=path.replace(root_r, ''),
-                        attack_id=attack_id,
-                        track_id=sg_track_ids[attack_id]
-                    )
-                    sg_track_outputs[attack_id] = {}
-                    sg_track_outputs[attack_id]['output_stracks_att'] = output_stracks_att
-                    sg_track_outputs[attack_id]['adImg'] = adImg
-                    sg_track_outputs[attack_id]['noise'] = noise
-                    if suc in [1, 2]:
-                        if attack_id not in sg_attack_frames:
-                            sg_attack_frames[attack_id] = 0
-                        sg_attack_frames[attack_id] += 1
-                    if attack_id not in results_att_sg:
-                        results_att_sg[attack_id] = []
-                    if attack_id not in l2_distance_sg:
-                        l2_distance_sg[attack_id] = []
-                    if l2_dis is not None:
-                        l2_distance_sg[attack_id].append(l2_dis)
-                    if suc == 1:
-                        suc_frequency_ids[attack_id] = 1
-                    elif suc == 2:
-                        suc_frequency_ids.pop(attack_id, None)
-                    elif suc == 3:
-                        if attack_id not in suc_frequency_ids:
-                            suc_frequency_ids[attack_id] = 0
-                        suc_frequency_ids[attack_id] += 1
-                    elif attack_id in suc_frequency_ids:
-                        suc_frequency_ids[attack_id] += 1
-                        if suc_frequency_ids[attack_id] > 20:
-                            suc_attacked_ids.add(attack_id)
-                            del trackers_dic[attack_id]
-                            torch.cuda.empty_cache()
-
-                tracked_stracks = copy.deepcopy(tracker.tracked_stracks)
-                lost_stracks = copy.deepcopy(tracker.lost_stracks)
-                removed_stracks = copy.deepcopy(tracker.removed_stracks)
-                ad_last_info = copy.deepcopy(tracker.ad_last_info)
-            elif opt.attack == 'single' and opt.method == 'ids':
-                assert opt.attack_id > 0
-                online_targets_ori, output_stracks_att, adImg, noise, l2_dis, suc = tracker.update_attack_sg(
-                    blob,
-                    img0,
-                    name=path.replace(root_r, ''),
-                    attack_id=opt.attack_id
-                )
-                if l2_dis is not None:
-                    l2_distance.append(l2_dis)
-            elif opt.attack == 'single' and opt.method == 'feat':
-                assert opt.attack_id > 0
-                online_targets_ori, output_stracks_att, adImg, noise, l2_dis, suc = tracker.update_attack_sg_feat(
-                    blob,
-                    img0,
-                    name=path.replace(root_r, ''),
-                    attack_id=opt.attack_id
-                )
-                if l2_dis is not None:
-                    l2_distance.append(l2_dis)
-            elif opt.attack == 'single' and opt.method == 'det':
-                assert opt.attack_id > 0
-                online_targets_ori, output_stracks_att, adImg, noise, l2_dis, suc = tracker.update_attack_sg_det(
-                    blob,
-                    img0,
-                    name=path.replace(root_r, ''),
-                    attack_id=opt.attack_id
-                )
-                if l2_dis is not None:
-                    l2_distance.append(l2_dis)
-            elif opt.attack == 'multiple' and opt.method == 'ids':
+           
+            
+            elif opt.attack == 'multiple':
                 online_targets_ori, output_stracks_att, adImg, noise, l2_dis = tracker.update_attack_mt(
                     blob,
                     img0,
-                    name=path.replace(root_r, '')
                 )
                 if l2_dis is not None and np.isnan(l2_dis)==False:
                     l2_distance.append(l2_dis)
                     attack_frames += 1
-            elif opt.attack == 'multiple' and opt.method == 'feat':
-                online_targets_ori, output_stracks_att, adImg, noise, l2_dis = tracker.update_attack_mt_feat(
-                    blob,
-                    img0,
-                    name=path.replace(root_r, '')
-                )
-                if l2_dis is not None:
-                    l2_distance.append(l2_dis)
-                    attack_frames += 1
-
-
-            imgPath = os.path.join(imgRoot, path.replace(root_r, ''))
+            imgPath = os.path.join(imgRoot, path.replace(data_root, ''))
             os.makedirs(os.path.split(imgPath)[0], exist_ok=True)
-            noisePath = os.path.join(noiseRoot, path.replace(root_r, ''))
+            noisePath = os.path.join(noiseRoot, path.replace(data_root, ''))
             os.makedirs(os.path.split(noisePath)[0], exist_ok=True)
             if opt.attack == 'single' and opt.attack_id == -1:
                 for key in sg_track_outputs.keys():
@@ -723,31 +605,7 @@ def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), 
         timer_calls.append(tc)
         logger.info('Evaluate seq: {}'.format(seq))
 
-    #     # eval
-    #     logger.info('Evaluate seq: {}'.format(seq))
-    #     evaluator = Evaluator(data_root, seq, data_type)
-    #     accs.append(evaluator.eval_file(result_filename))
-    #     if save_videos:
-    #         output_video_path = osp.join(output_dir, '{}.mp4'.format(seq))
-    #         cmd_str = 'ffmpeg -f image2 -i {}/%05d.jpg -c:v copy {}'.format(output_dir, output_video_path)
-    #         os.system(cmd_str)
-    # timer_avgs = np.asarray(timer_avgs)
-    # timer_calls = np.asarray(timer_calls)
-    # all_time = np.dot(timer_avgs, timer_calls)
-    # avg_time = all_time / np.sum(timer_calls)
-    # logger.info('Time elapsed: {:.2f} seconds, FPS: {:.2f}'.format(all_time, 1.0 / avg_time))
 
-    # # get summary
-    # metrics = mm.metrics.motchallenge_metrics
-    # mh = mm.metrics.create()
-    # summary = Evaluator.get_summary(accs, seqs, metrics)
-    # strsummary = mm.io.render_summary(
-    #     summary,
-    #     formatters=mh.formatters,
-    #     namemap=mm.io.motchallenge_metric_names
-    # )
-    # print(strsummary)
-    # Evaluator.save_summary(summary, os.path.join(result_root, 'summary_{}.xlsx'.format(exp_name)))
 
 
 
@@ -765,11 +623,9 @@ if __name__ == '__main__':
     parser.add_argument('--save-videos', action='store_true', help='save tracking results (video)')
     parser.add_argument('--attack', default='')
     parser.add_argument('--attack_id', default=-1, type=int)
-    parser.add_argument('--method', default='ids', type=str)
-    parser.add_argument('--data_dir', type=str, default='/home/zhouchengyu/Data/')
     parser.add_argument('--output_dir', type=str, default='/home/zhouchengyu/noise/data')
     parser.add_argument('--test_mot15', default=False, help='test mot16')
-    parser.add_argument('--test_mot17', default=True, help='test mot17')
+    parser.add_argument('--test_mot17', default=False, help='test mot17')
     parser.add_argument('--test_mot20', default=False, help='test mot20')
     parser.add_argument('--no_f_noise', action='store_true')
     opt = parser.parse_args()
@@ -788,7 +644,7 @@ if __name__ == '__main__':
                       TUD-Crossing
                       Venice-1
                     '''
-        data_root = '/home/popzq/Data/MOT/MOT15/images/test/'
+        data_root = '/home/zhouchengyu/Data/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
