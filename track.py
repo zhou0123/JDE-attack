@@ -407,6 +407,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
             os.makedirs(os.path.split(imgPath)[0], exist_ok=True)
             noisePath = os.path.join(noiseRoot, path.replace(data_root, ''))
             os.makedirs(os.path.split(noisePath)[0], exist_ok=True)
+            print(imgPath)
+            print(noisePath)
             if opt.attack == 'single' and opt.attack_id == -1:
                 for key in sg_track_outputs.keys():
                     cv2.imwrite(imgPath.replace('.jpg', f'_{key}.jpg'), sg_track_outputs[key]['adImg'])
@@ -426,9 +428,9 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                     sg_track_outputs[key]['online_tlwhs_att'] = online_tlwhs_att
                     sg_track_outputs[key]['online_ids_att'] = online_ids_att
             else:
-                # cv2.imwrite(imgPath, adImg)
-                # if noise is not None:
-                #     cv2.imwrite(noisePath, noise)
+                cv2.imwrite(imgPath, adImg)
+                if noise is not None:
+                    cv2.imwrite(noisePath, noise)
 
                 online_tlwhs_att = []
                 online_ids_att = []
