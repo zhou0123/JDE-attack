@@ -319,7 +319,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
         timer.tic()
         blob = torch.from_numpy(img).cuda().unsqueeze(0)
         if opt.attack:
-            if opt.attack == 'single' and opt.attack_id == -1:
+            if opt.attack == 'single' and opt.attack_id == -1 and opt.method in ['ids', 'det', 'hijack']:
                 online_targets_ori = tracker.update(blob, img0,track_id=track_id)
                 dets = []
                 ids = []
@@ -355,12 +355,27 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                             'origin': {'track_id': track_id['track_id']},
                             'attack': {'track_id': track_id['track_id']}
                         }
-                    _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg(
-                        blob,
-                        img0,
-                        attack_id=attack_id,
-                        track_id=sg_track_ids[attack_id]
-                    )
+                    if opt.method == 'ids':
+                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg(
+                            blob,
+                            img0,
+                            attack_id=attack_id,
+                            track_id=sg_track_ids[attack_id]
+                        )
+                    elif opt.method == 'det':
+                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg_det(
+                            blob,
+                            img0,
+                            attack_id=attack_id,
+                            track_id=sg_track_ids[attack_id]
+                        )
+                    elif opt.method == 'hijack':
+                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg_hj(
+                            blob,
+                            img0,
+                            attack_id=attack_id,
+                            track_id=sg_track_ids[attack_id]
+                        )
                     sg_track_outputs[attack_id] = {}
                     sg_track_outputs[attack_id]['output_stracks_att'] = output_stracks_att
                     sg_track_outputs[attack_id]['adImg'] = adImg
@@ -395,8 +410,24 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                 ad_last_info = copy.deepcopy(tracker.ad_last_info)
            
             
-            elif opt.attack == 'multiple':
+            elif opt.attack == 'multiple'and opt.method == 'ids':
                 online_targets_ori, output_stracks_att, adImg, noise, l2_dis = tracker.update_attack_mt(
+                    blob,
+                    img0,
+                )
+                if l2_dis is not None and np.isnan(l2_dis)==False:
+                    l2_distance.append(l2_dis)
+                    attack_frames += 1
+            elif opt.attack == 'multiple'and opt.method == 'det':
+                online_targets_ori, output_stracks_att, adImg, noise, l2_dis = tracker.update_attack_mt_det(
+                    blob,
+                    img0,
+                )
+                if l2_dis is not None and np.isnan(l2_dis)==False:
+                    l2_distance.append(l2_dis)
+                    attack_frames += 1
+            elif opt.attack == 'multiple'and opt.method == 'hijack':
+                online_targets_ori, output_stracks_att, adImg, noise, l2_dis = tracker.update_attack_mt_hj(
                     blob,
                     img0,
                 )
