@@ -274,7 +274,6 @@ sg_attack_frames2ids = {}
 total_l2_dis = []
 total_attack_frame = []
 def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_image=True, frame_rate=30):
-
     BaseTrack.init()
     need_attack_ids = set([])
     suc_attacked_ids = set([])
@@ -622,7 +621,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
 def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), exp_name='demo', 
          save_images=False, save_videos=False, show_image=True):
     logger.setLevel(logging.INFO)
-    result_root = os.path.join(data_root, '..', 'results', exp_name)
+    result_root = os.path.join(data_root, '..', 'results', exp_name,opt.attack,opt.method)
     mkdir_if_missing(result_root)
     data_type = 'mot'
 
@@ -640,7 +639,7 @@ def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), 
         logger.info('start seq: {}'.format(seq))
         #print(osp.join(data_root, seq, 'img1'))
         dataloader = datasets.LoadImages(osp.join(data_root, seq,"img1"), opt.img_size)
-        result_filename = os.path.join(result_root,opt.attack,opt.method,'{}.txt'.format(seq))
+        result_filename = os.path.join(result_root,'{}.txt'.format(seq))
         meta_info = open(os.path.join(data_root, seq, 'seqinfo.ini')).read() 
         frame_rate = int(meta_info[meta_info.find('frameRate')+10:meta_info.find('\nseqLength')])
         nf, ta, tc, l2_distance = eval_seq(opt, dataloader, data_type, result_filename,
@@ -696,7 +695,7 @@ if __name__ == '__main__':
                       MOT20-06
                       MOT20-07
                       MOT20-08'''
-        data_root = '/home/popzq/Data/MOT/MOT20/images/test/'
+        data_root = '/home/zhouchengyu/Data/MOT/MOT20/images/test/'
     elif opt.test_mot17:
         seqs_str = '''MOT17-01-SDP
                       MOT17-03-SDP
@@ -705,8 +704,7 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
-     
-        data_root = '/home/popzq/Data/MOT/MOT17/images/test/'
+        data_root = '/home/zhouchengyu/Data/MOT/MOT17/images/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
     main(opt,
