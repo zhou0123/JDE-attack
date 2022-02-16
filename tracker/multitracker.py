@@ -91,7 +91,8 @@ class STrack(BaseTrack):
         self.curr_tlbr = self.tlwh_to_tlbr(self._tlwh)
 
         self.det_dict = {}
-
+    def get_v(self):
+        return self.mean[4:6] if self.mean is not None else None
     def update_features_ad(self, feat):
         feat /= np.linalg.norm(feat)
         if self.smooth_feat_ad is None:
@@ -728,21 +729,15 @@ class JDETracker(object):
         return noise, i, suc
     def attack_sg_hj(
             self,
-            indsx,
-            in_,
             im_blob,
             img0,
-            id_features,
             dets,
             inds,
             remain_inds,
-            last_info,
             outputs_ori,
-            attack_id,
             attack_ind,
-            lr=0.1,
-            beta_1=0.9,
-            beta_2=0.999
+            ad_bbox,
+            track_v
     ):
         
         img0_h, img0_w = img0.shape[:2]
@@ -1068,23 +1063,16 @@ class JDETracker(object):
     
     def attack_mt_hj(
             self,
-            indsx,
-            in_,
             im_blob,
             img0,
-            id_features,
             dets,
             inds,
             remain_inds,
-            last_info,
             outputs_ori,
             attack_ids,
             attack_inds,
             ad_ids,
             track_vs,
-            lr=0.001,
-            beta_1=0.9,
-            beta_2=0.999
     ):
         img0_h, img0_w = img0.shape[:2]
         noise = torch.zeros_like(im_blob)
@@ -1210,9 +1198,7 @@ class JDETracker(object):
         hm_index = inds[0][remain_inds]
         i = 0
 
-
         hm_index_att_lst = hm_index[attack_inds].cpu().numpy().tolist()
-
         best_i = None
         best_noise = None
         best_fail = np.inf
@@ -1244,7 +1230,7 @@ class JDETracker(object):
             # noise += update_grad
 
             im_blob = torch.clip(im_blob_ori + noise, min=0, max=1).data
-            id_features, outputs, fail_ids = self.forwardFeatureDet(
+            outputs, suc, fail_ids = self.forwardFeatureDet(
                 im_blob,
                 dets,
                 attack_inds.tolist(),
@@ -1299,6 +1285,7 @@ class JDETracker(object):
         row_inds, col_inds = linear_sum_assignment(-ious)
         if not isinstance(thr, list):
             thr = [thr for _ in range(len(attack_inds))]
+        fail_n = 0
         for i in range(len(row_inds)):
             if row_inds[i] in attack_inds:
                 if ious[row_inds[i], col_inds[i]] > thr[attack_inds.index(row_inds[i])]:
@@ -2535,17 +2522,12 @@ class JDETracker(object):
                         target_id = dets_ids[target_ind]
                         if fit:
                             noise, attack_iter, suc = self.attack_sg_hj(
-                                indsx,
-                                in_,
                                 im_blob,
                                 img0,
-                                id_features,
                                 dets,
                                 inds,
                                 remain_inds,
-                                last_info=self.ad_last_info,
                                 outputs_ori=output,
-                                attack_id=attack_id,
                                 attack_ind=attack_ind,
                                 ad_bbox=self.ad_bbox,
                                 track_v=att_tracker.get_v() if att_tracker is not None else None
@@ -3193,15 +3175,11 @@ class JDETracker(object):
                                 att_trackers.append(t)
 
                 noise, attack_iter, suc = self.attack_mt_hj(
-                    indsx,
-                    in_,
                     im_blob,
                     img0,
-                    id_features,
                     dets,
                     inds,
                     remain_inds,
-                    last_info=self.ad_last_info,
                     outputs_ori=output,
                     attack_ids=attack_ids,
                     attack_inds=attack_inds,

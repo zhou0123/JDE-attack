@@ -438,8 +438,8 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
             os.makedirs(os.path.split(imgPath)[0], exist_ok=True)
             noisePath = os.path.join(noiseRoot, path.replace(data_root, ''))
             os.makedirs(os.path.split(noisePath)[0], exist_ok=True)
-            print(imgPath)
-            print(noisePath)
+            # print(imgPath)
+            # print(noisePath)
             if opt.attack == 'single' and opt.attack_id == -1:
                 for key in sg_track_outputs.keys():
                     cv2.imwrite(imgPath.replace('.jpg', f'_{key}.jpg'), sg_track_outputs[key]['adImg'])
@@ -545,9 +545,20 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
             write_results(result_filename.replace('.txt', f'_attack_{key}.txt'), results_att_sg[key], data_type)
     elif opt.attack:
         write_results(result_filename.replace('.txt', '_attack.txt'), results_att, data_type)
-
-    output_file = result_filename.replace('.txt', '_attack_result.txt')
+    if opt.attack == "multiple" and opt.method=="det":
+        output_file = result_filename.replace('.txt', 'mtdet_attack_result.txt')
+    elif opt.attack == "multiple" and opt.method=="hijack":
+        output_file = result_filename.replace('.txt', 'mthijack_attack_result.txt')
+    elif opt.attack == "multiple" and opt.method=="ids":
+        output_file = result_filename.replace('.txt', 'mtids_attack_result.txt')
+    elif opt.attack == "single" and opt.method=="det":
+        output_file = result_filename.replace('.txt', 'singledet_attack_result.txt')
+    elif opt.attack == "single" and opt.method=="hijack":
+        output_file = result_filename.replace('.txt', 'singlehijack_attack_result.txt')
+    elif opt.attack == "single" and opt.method=="ids":
+        output_file = result_filename.replace('.txt', 'singleids_attack_result.txt')
     print(f'output file saved in {output_file}')
+
     file = open(output_file, 'w')
     out_logger = Logger(file)
     global total_l2_dis
@@ -627,8 +638,9 @@ def main(opt, data_root='/data/MOT16/train', det_root=None, seqs=('MOT16-05',), 
         output_dir = os.path.join(data_root, '..','outputs', exp_name, seq) if save_images or save_videos else None
 
         logger.info('start seq: {}'.format(seq))
-        dataloader = datasets.LoadImages(osp.join(data_root, seq, 'img1'), opt.img_size)
-        result_filename = os.path.join(result_root, '{}.txt'.format(seq))
+        #print(osp.join(data_root, seq, 'img1'))
+        dataloader = datasets.LoadImages(osp.join(data_root, seq,"img1"), opt.img_size)
+        result_filename = os.path.join(result_root,opt.attack,opt.method,'{}.txt'.format(seq))
         meta_info = open(os.path.join(data_root, seq, 'seqinfo.ini')).read() 
         frame_rate = int(meta_info[meta_info.find('frameRate')+10:meta_info.find('\nseqLength')])
         nf, ta, tc, l2_distance = eval_seq(opt, dataloader, data_type, result_filename,
@@ -656,8 +668,9 @@ if __name__ == '__main__':
     parser.add_argument('--save-videos', action='store_true', help='save tracking results (video)')
     parser.add_argument('--attack', default='')
     parser.add_argument('--attack_id', default=-1, type=int)
+    parser.add_argument('--method', default="ids",type=str)
     parser.add_argument('--output_dir', type=str, default='/home/zhouchengyu/noise/data')
-    parser.add_argument('--test_mot15', default=False, help='test mot16')
+    parser.add_argument('--test_mot15', default=False, help='test mot15')
     parser.add_argument('--test_mot17', default=False, help='test mot17')
     parser.add_argument('--test_mot20', default=False, help='test mot20')
     parser.add_argument('--no_f_noise', action='store_true')
@@ -677,7 +690,7 @@ if __name__ == '__main__':
                       TUD-Crossing
                       Venice-1
                     '''
-        data_root = '/home/zhouchengyu/Data/MOT15/images/test/'
+        data_root = '/home/zhouchengyu/Data/MOT/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
