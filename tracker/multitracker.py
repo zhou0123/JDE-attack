@@ -505,7 +505,7 @@ class JDETracker(object):
             grad = im_blob.grad
             grad /= (grad ** 2).sum().sqrt() + 1e-8
 
-            noise += grad
+            noise += grad*2
            # import pdb;pdb.set_trace()
 
             im_blob = torch.clip(im_blob_ori + noise, min=0, max=1).data
@@ -776,8 +776,8 @@ class JDETracker(object):
             wh=torch.cat((w,h),dim=1)
             loss -= ((outputs[0,:,4].view(-1)[hm_index_att_lst].sigmoid()) ** 2).mean()
             
-            if ad_bbox:
-                assert track_v is not None
+            if ad_bbox and track_v is not None:
+                #assert track_v is not None
                 hm_index_gen = hm_index_att_lst[0]
                 Index_t,W,H_t,t_=Filter_(hm_index_gen)
                 hm_index_gen += -(np.sign(track_v[0]) + W * np.sign(track_v[1]))
@@ -793,7 +793,7 @@ class JDETracker(object):
             grad = im_blob.grad
             grad /= (grad ** 2).sum().sqrt() + 1e-8
 
-            noise += grad
+            noise += grad*2
            # import pdb;pdb.set_trace()
 
             im_blob = torch.clip(im_blob_ori + noise, min=0, max=1).data
@@ -1129,7 +1129,7 @@ class JDETracker(object):
             grad = im_blob.grad
             grad /= (grad ** 2).sum().sqrt() + 1e-8
 
-            noise += grad
+            noise += grad*2
 
             thrs = [0 for j in range(len(attack_inds))]
             for j in range(len(thrs)):
@@ -1217,7 +1217,7 @@ class JDETracker(object):
             grad = im_blob.grad
             grad /= (grad ** 2).sum().sqrt() + 1e-8
 
-            noise += grad
+            noise += grad*2
 
             # adam_m = beta_1 * adam_m + (1 - beta_1) * grad
             # adam_v = beta_2 * adam_v + (1 - beta_2) * (grad ** 2)
