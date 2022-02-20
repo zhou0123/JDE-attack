@@ -837,16 +837,15 @@ class JDETracker(object):
             wh=torch.cat((w,h),dim=1)
             loss -= ((outputs[0,:,4].view(-1)[hm_index_att_lst].sigmoid()) ** 2).mean()
             
-            if ad_bbox:
+            if ad_bbox and track_v is not None:
                 #assert track_v is not None
-                if ad_bbox and track_v is not None:
-                    hm_index_gen = hm_index_att_lst[0]
-                    Index_t,W,H_t,t_=Filter_(hm_index_gen)
-                    hm_index_gen += -(np.sign(track_v[0]) + W * np.sign(track_v[1]))
-                    loss -= ((1 - outputs[0,:,4].view(-1)[[hm_index_gen]].sigmoid()) ** 2).mean() 
-                    loss -= smoothL1(wh.view(2, -1)[:, [hm_index_gen]].T,
-                                    wh_ori.view(2, -1)[:, hm_index_att_lst].T)
-                
+                hm_index_gen = hm_index_att_lst[0]
+                Index_t,W,H_t,t_=Filter_(hm_index_gen)
+                hm_index_gen += -(np.sign(track_v[0]) + W * np.sign(track_v[1]))
+                loss -= ((1 - outputs[0,:,4].view(-1)[[hm_index_gen]].sigmoid()) ** 2).mean() 
+                loss -= smoothL1(wh.view(2, -1)[:, [hm_index_gen]].T,
+                                 wh_ori.view(2, -1)[:, hm_index_att_lst].T)
+               
             
          
                
