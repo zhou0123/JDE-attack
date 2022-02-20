@@ -318,7 +318,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
         timer.tic()
         blob = torch.from_numpy(img).cuda().unsqueeze(0)
         if opt.attack:
-            if opt.attack == 'single' and opt.attack_id == -1 and opt.method in ['ids', 'det', 'hijack']:
+            if opt.attack == 'single' and opt.attack_id == -1 and opt.method in ['ids', 'det', 'hijack','rand']:
                 online_targets_ori = tracker.update(blob, img0,track_id=track_id)
                 dets = []
                 ids = []
@@ -355,6 +355,13 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                             'attack': {'track_id': track_id['track_id']}
                         }
                     if opt.method == 'ids':
+                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg(
+                            blob,
+                            img0,
+                            attack_id=attack_id,
+                            track_id=sg_track_ids[attack_id]
+                        )
+                    elif opt.method == 'rand':
                         _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg(
                             blob,
                             img0,
@@ -677,25 +684,29 @@ if __name__ == '__main__':
     print(opt, end='\n\n')
  
     if  opt.test_mot15:
-        seqs_str = '''ADL-Rundle-1
-                      ADL-Rundle-3
-                      AVG-TownCentre
-                      ETH-Crossing
-                      ETH-Jelmoli
-                      ETH-Linthescher
-                      KITTI-16
-                      KITTI-19
-                      PETS09-S2L2
-                      TUD-Crossing
-                      Venice-1
-                    '''
-        data_root = '/home/zhouchengyu/Data/MOT/MOT15/images/test/'
+        # seqs_str = '''ADL-Rundle-1
+        #               ADL-Rundle-3
+        #               AVG-TownCentre
+        #               ETH-Crossing
+        #               ETH-Jelmoli
+        #               ETH-Linthescher
+        #               KITTI-16
+        #               KITTI-19
+        #               PETS09-S2L2
+        #               TUD-Crossing
+        #               Venice-1
+        #             '''
+        seqs_str =  """PETS09-S2L2
+                    TUD-Crossing
+                    Venice-1
+                    """
+        data_root = '/home/zhouchengyu/Data/MOT/MOT15/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
                       MOT20-07
                       MOT20-08'''
-        data_root = '/home/zhouchengyu/Data/MOT/MOT20/images/test/'
+        data_root = '/home/zhouchengyu/Data/MOT/MOT20/test/'
     elif opt.test_mot17:
         seqs_str = '''MOT17-01-SDP
                       MOT17-03-SDP
@@ -704,7 +715,13 @@ if __name__ == '__main__':
                       MOT17-08-SDP
                       MOT17-12-SDP
                       MOT17-14-SDP'''
-        data_root = '/home/zhouchengyu/Data/MOT/MOT17/images/test/'
+        seqs_str = '''MOT17-03-SDP
+                      MOT17-06-SDP
+                      MOT17-07-SDP
+                      MOT17-08-SDP
+                      MOT17-12-SDP
+                      MOT17-14-SDP'''
+        data_root = '/home/zhouchengyu/Data/MOT/MOT17/test/'
     seqs = [seq.strip() for seq in seqs_str.split()]
 
     main(opt,
