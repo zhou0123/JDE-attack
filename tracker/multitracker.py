@@ -676,8 +676,8 @@ class JDETracker(object):
                 h_ori=(boxes_ori[:,3]-boxes_ori[:,1]).reshape(-1,1)
                 wh=torch.cat((w,h),dim=1)
                 wh_ori=torch.cat((w_ori,h_ori),dim=1)
-                print("n_ori_hm_index_re",n_ori_hm_index_re)
-                print("n_att_hm_index",n_att_hm_index)
+                # print("n_ori_hm_index_re",n_ori_hm_index_re)
+                # print("n_att_hm_index",n_att_hm_index)
                 loss += ((1 - outputs[0,:,4][n_att_hm_index]) ** 2 *
                         torch.log(outputs[0,:,4][n_att_hm_index])).mean()
                 loss += ((outputs[0,:,4][n_ori_hm_index_re]) ** 2 *
