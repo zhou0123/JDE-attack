@@ -691,9 +691,11 @@ if __name__ == '__main__':
                     '''
         data_root = '/home/zhouchengyu/Data/MOT/MOT15/images/test/'
     elif opt.test_mot20:
-        seqs_str = '''MOT20-04
-                      MOT20-06
-                      MOT20-07
+        # seqs_str = '''MOT20-04
+        #               MOT20-06
+        #               MOT20-07
+        #               MOT20-08'''
+        seqs_str = '''MOT20-07
                       MOT20-08'''
         data_root = '/home/zhouchengyu/Data/MOT/MOT20/images/test/'
     elif opt.test_mot17:

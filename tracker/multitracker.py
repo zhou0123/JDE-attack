@@ -497,6 +497,7 @@ class JDETracker(object):
             loss = 0
             hm_index_att_lst=hm_index[attack_ind]
 
+
             loss-=((outputs[0,:,4].view(-1)[hm_index_att_lst].sigmoid()) ** 2).mean()
 
 
@@ -548,7 +549,6 @@ class JDETracker(object):
         hm_index = inds[0][remain_inds]
         Index_a,W_a,H_a,a_=Filter_(hm_index[attack_ind])
         Index_t,W_t,H_t,t_=Filter_(hm_index[target_ind])
-
         r_w_a, r_h_a = img0_w / (136*2), img0_h / (76*2)
         r_w_t, r_h_t = img0_w / (136*2), img0_h / (76*2)
         r_max_a = max(r_w_a, r_h_a)
@@ -579,7 +579,7 @@ class JDETracker(object):
         
         for i in range(len(id_features)):
             id_features[i] = id_features[i][[attack_ind, target_ind]]
-
+        
         adam_m = 0
         adam_v = 0
 
@@ -649,19 +649,25 @@ class JDETracker(object):
                 n_att_hm_index = []
                 n_ori_hm_index_re = []
                 for hm_ind in range(len(att_hm_index)):
-                    for n_i in range(3):
-                        for n_j in range(3):
-                            att_hm_ind = att_hm_index[hm_ind].item()
-                            att_hm_ind = att_hm_ind + (n_i - 1) * W_a + (n_j - 1)
-                            att_hm_ind = max(a_, min(H_a*W_a-1+a_, att_hm_ind))
-                            n_att_hm_index.append(att_hm_ind)
-                            ori_hm_ind = ori_hm_index_re[hm_ind].item()
-                            ori_hm_ind = ori_hm_ind + (n_i - 1) * W_t + (n_j - 1)
-                            ori_hm_ind = max(t_, min(H_t * W_t - 1+t_, ori_hm_ind))
-                            n_ori_hm_index_re.append(ori_hm_ind)
+                    # for n_i in range(3):
+                    #     for n_j in range(3):
+                    # n_i,n_j=1,1
+                    # att_hm_ind = att_hm_index[hm_ind].item()
+                    # att_hm_ind = att_hm_ind + (n_i - 1) * W_a + (n_j - 1)
+                    # att_hm_ind = max(a_, min(H_a*W_a-1+a_, att_hm_ind))
+                    # n_att_hm_index.append(att_hm_ind)
+                    # ori_hm_ind = ori_hm_index_re[hm_ind].item()
+                    # ori_hm_ind = ori_hm_ind + (n_i - 1) * W_t + (n_j - 1)
+                    # ori_hm_ind = max(t_, min(H_t * W_t - 1+t_, ori_hm_ind))
+                    # n_ori_hm_index_re.append(ori_hm_ind)
+                    att_hm_ind = att_hm_index[hm_ind].item()
+                    n_att_hm_index.append(att_hm_ind)
+                    ori_hm_ind = ori_hm_index_re[hm_ind].item()
+                    n_ori_hm_index_re.append(ori_hm_ind)
                 # print(n_att_hm_index)
                 # print(hm_index[attack_ind])
                 # print('aqa'*100)
+               
                 boxes=outputs[0,:,:4]
                 boxes_ori=outputs[0,:,:4].clone().data
                 w=(boxes[:,2]-boxes[:,0]).reshape(-1,1)
@@ -670,6 +676,8 @@ class JDETracker(object):
                 h_ori=(boxes_ori[:,3]-boxes_ori[:,1]).reshape(-1,1)
                 wh=torch.cat((w,h),dim=1)
                 wh_ori=torch.cat((w_ori,h_ori),dim=1)
+                print("n_ori_hm_index_re",n_ori_hm_index_re)
+                print("n_att_hm_index",n_att_hm_index)
                 loss += ((1 - outputs[0,:,4][n_att_hm_index]) ** 2 *
                         torch.log(outputs[0,:,4][n_att_hm_index])).mean()
                 loss += ((outputs[0,:,4][n_ori_hm_index_re]) ** 2 *
@@ -1129,7 +1137,7 @@ class JDETracker(object):
             grad = im_blob.grad
             grad /= (grad ** 2).sum().sqrt() + 1e-8
 
-            noise += grad*2
+            noise += grad
 
             thrs = [0 for j in range(len(attack_inds))]
             for j in range(len(thrs)):
@@ -1295,9 +1303,10 @@ class JDETracker(object):
                     d_a = dets[col_inds[i], :4]
                     c_o = (d_o[[0, 1]] + d_o[[2, 3]]) / 2
                     c_a = (d_a[[0, 1]] + d_a[[2, 3]]) / 2
-                    c_d = ((c_a - c_o) / 4).astype(np.int) * vs[0]
-                    if c_d[0] >= 0 or c_d[1] >= 0:
-                        fail_n += 1
+                    if ((c_a is not None) and (c_o is not None) and (vs[0] is not None)):
+                        c_d = ((c_a - c_o) / 4).astype(np.int) * vs[0]
+                        if c_d[0] >= 0 or c_d[1] >= 0:
+                            fail_n += 1
         return output, fail_n == 0, fail_n
         
         
