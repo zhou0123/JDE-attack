@@ -735,6 +735,67 @@ class JDETracker(object):
                 suc = False
                 break
         return noise, i, suc
+    def attack_sg(
+            self,
+            indsx,
+            in_,
+            im_blob,
+            img0,
+            id_features,
+            dets,
+            inds,
+            remain_inds,
+            last_info,
+            outputs_ori,
+            attack_id,
+            attack_ind,
+            target_id,
+            target_ind,
+            lr=0.1,
+            beta_1=0.9,
+            beta_2=0.999
+    ):
+        img0_h, img0_w = img0.shape[:2]
+        noise = torch.zeros_like(im_blob)
+        im_blob_ori = im_blob.clone().data
+        outputs = outputs_ori
+        hm_index = inds[0][remain_inds]
+        Index_a,W_a,H_a,a_=Filter_(hm_index[attack_ind])
+        Index_t,W_t,H_t,t_=Filter_(hm_index[target_ind])
+
+        r_w_a, r_h_a = img0_w / (136*2), img0_h / (76*2)
+        r_w_t, r_h_t = img0_w / (136*2), img0_h / (76*2)
+        r_max_a = max(r_w_a, r_h_a)
+        r_max_t = max(r_w_t, r_h_t)
+
+
+        suc = False
+
+        noise = torch.rand(im_blob_ori.size()).to(im_blob_ori.device)
+        noise /= (noise**2).sum().sqrt()
+        noise *= random.uniform(2, 8)
+
+        im_blob = torch.clip(im_blob_ori + noise, min=0, max=1).data
+        id_features_, outputs_, ae_attack_id, ae_target_id, hm_index_ = self.forwardFeatureSg(
+            indsx,
+            in_,
+            im_blob,
+            img0,
+            dets,
+            inds,
+            remain_inds,
+            attack_id,
+            attack_ind,
+            target_id,
+            target_ind,
+            last_info,
+            grad=False
+        )
+       
+        if ae_attack_id != attack_id and ae_attack_id is not None:
+            suc = True
+          
+        return noise, 1, suc
     def attack_sg_hj(
             self,
             im_blob,
@@ -1307,14 +1368,24 @@ class JDETracker(object):
                         c_d = ((c_a - c_o) / 4).astype(np.int) * vs[0]
                         if c_d[0] >= 0 or c_d[1] >= 0:
                             fail_n += 1
+                    # c_d = ((c_a - c_o) / 4).astype(np.int) * vs[0]
+
+                    # if c_d[0] >= 0 or c_d[1] >= 0:
+                    #     fail_n += 1
         return output, fail_n == 0, fail_n
         
         
     def forwardFeatureSg(self,indsx_,in__,im_blob, img0, dets_, inds_, remain_inds_, attack_id, attack_ind, target_id, target_ind,
-                         last_info):
+                         last_info,grad=True):
         im_blob.requires_grad = True
         self.model.zero_grad()
-        output = self.model(im_blob)
+        if grad:
+
+            output = self.model(im_blob)
+        else:
+            with torch.no_grad():
+                output = self.model(im_blob)
+            
 
 
 
@@ -1984,6 +2055,284 @@ class JDETracker(object):
                                 outputs_ori=output,
                                 attack_id=attack_id,
                                 attack_ind=attack_ind,
+                            )
+                            self.attack_iou_thr = 0
+                            if suc:
+                                suc = 1
+                                print(
+                                    f'attack id: {attack_id}\tattack frame {self.frame_id_}: SUCCESS\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
+                            else:
+                                suc = 2
+                                print(
+                                    f'attack id: {attack_id}\tattack frame {self.frame_id_}: FAIL\tl2 distance: {(noise ** 2).sum().sqrt().item()}\titeration: {attack_iter}')
+                        else:
+                            suc = 3
+                        if ious[attack_ind][target_ind] == 0:
+                            self.temp_i += 1
+                            if self.temp_i >= 10:
+                                self.attack_iou_thr = self.ATTACK_IOU_THR
+                        else:
+                            self.temp_i = 0
+                    else:
+                        self.attack_iou_thr = self.ATTACK_IOU_THR
+                        if fit:
+                            suc = 2
+
+        if noise is not None:
+            l2_dis = (noise ** 2).sum().sqrt().item()
+            im_blob = torch.clip(im_blob + noise, min=0, max=1)
+
+            noise = self.recoverNoise(noise, img0)
+            adImg = np.clip(img0 + noise, a_min=0, a_max=255)
+
+            noise = (noise - np.min(noise)) / (np.max(noise) - np.min(noise))
+            noise = (noise * 255).astype(np.uint8)
+        else:
+            l2_dis = None
+            adImg = img0
+        output_stracks_att = self.update(im_blob, img0, track_id=self_track_id_att)
+
+        return output_stracks_ori, output_stracks_att, adImg, noise, l2_dis, suc
+    def update_attack_sg_rand(self, im_blob, img0, **kwargs):
+        self.frame_id_ += 1
+        attack_id = kwargs['attack_id']
+        self_track_id_ori = kwargs.get('track_id', {}).get('origin', None)
+        self_track_id_att = kwargs.get('track_id', {}).get('attack', None)
+        activated_starcks = []
+        refind_stracks = []
+        lost_stracks = []
+        removed_stracks = []
+
+       
+        im_blob.requires_grad = True
+        self.model.zero_grad()
+        output = self.model(im_blob)
+        feature_ids1=output[:,:2584,6:].permute(0,2,1).reshape(1,512,19*2,34*2)
+        feature_ids2=output[:,2584:10336+2584,6:].permute(0,2,1).reshape(1,512,38*2,68*2)
+        feature_ids3=output[:,10336+2584:10336+2584+41344,6:].permute(0,2,1).reshape(1,512,76*2,136*2)
+
+        inds1=output[:,:2584,4]>self.opt.conf_thres
+        inds1=torch.arange(2584).reshape(1,-1)[inds1].reshape(1,-1).to('cuda')
+        inds2=output[:,2584:10336+2584,4]>self.opt.conf_thres
+        inds2=torch.arange(10336).reshape(1,-1)[inds2].reshape(1,-1).to('cuda')
+        inds3=output[:,10336+2584:10336+2584+41344,4]>self.opt.conf_thres
+        inds3=torch.arange(41344).reshape(1,-1)[inds3].reshape(1,-1).to('cuda')
+        indsx=output[:,:,4]> self.opt.conf_thres
+        inds=torch.where(output[:,:,4]> self.opt.conf_thres)[1].reshape(1,-1)
+
+        #inds=torch.arange(10336+2584+41344).reshape(1,-1)[inds]
+        #output=output[inds]
+        fea_=[feature_ids1,feature_ids2,feature_ids3]
+        in_=[inds1,inds2,inds3]
+        id_features=[]
+        for i in range(3):
+            for j in range(3):
+                id_fe=[]
+                for fe_,i_ in zip(fea_,in_):
+                    id_feature_exp = _tranpose_and_gather_feat_expand(fe_, i_, bias=(i - 1, j - 1)).squeeze(0)
+                    id_fe.append(id_feature_exp)
+                id_fe=torch.cat(id_fe)
+                id_features.append(id_fe)
+                
+        id_feature =output[:,:,6:][indsx].squeeze(0)
+
+        output1=output[indsx]
+        if len(output1) > 0:
+            dets,remain_inds = non_max_suppression(output1.unsqueeze(0), self.opt.conf_thres, self.opt.nms_thres)
+            dets=dets[0].cpu().detach().numpy()
+            # Final proposals are obtained in dets. Information of bounding box and embeddings also included
+            # Next step changes the detection scales
+            #(self.opt.img_size, dets[:, :4], img0.shape).round()
+        else:
+            detections = []
+            dets=np.zeros((1,4))
+            remain_inds=torch.tensor([]).long()
+
+        for i in range(len(id_features)):
+            id_features[i] = id_features[i][remain_inds]
+        id_feature=id_feature[remain_inds]
+        id_feature = id_feature.detach().cpu().numpy()
+        last_id_features = [None for _ in range(len(dets))]
+        last_ad_id_features = [None for _ in range(len(dets))]
+        dets_index = [i for i in range(len(dets))]
+        dets_ids = [None for _ in range(len(dets))]
+        tracks_ad = []
+
+        # import pdb; pdb.set_trace()
+        # vis
+        '''
+        for i in range(0, dets.shape[0]):
+            bbox = dets[i][0:4]
+            cv2.rectangle(img0, (bbox[0], bbox[1]),
+                          (bbox[2], bbox[3]),
+                          (0, 255, 0), 2)
+        cv2.imshow('dets', img0)
+        cv2.waitKey(0)
+        id0 = id0-1
+        '''
+
+        if len(dets) > 0:
+            '''Detections'''
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+                          (tlbrs, f) in zip(dets[:, :5], id_feature)]
+        else:
+            detections = []
+
+        ''' Add newly detected tracklets to tracked_stracks'''
+        unconfirmed = []
+        tracked_stracks = []  # type: list[STrack]
+        for track in self.tracked_stracks_:
+            if not track.is_activated:
+                unconfirmed.append(track)
+            else:
+                tracked_stracks.append(track)
+        ''' Step 2: First association, with embedding'''
+        strack_pool = joint_stracks(tracked_stracks, self.lost_stracks_)
+
+        STrack.multi_predict(strack_pool)
+        dists = matching.embedding_distance(strack_pool, detections)
+        # dists = matching.gate_cost_matrix(self.kalman_filter, dists, strack_pool, detections)
+        dists = matching.fuse_motion(self.kalman_filter_, dists, strack_pool, detections)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        # import pdb; pdb.set_trace()
+        for itracked, idet in matches:
+            track = strack_pool[itracked]
+            det = detections[idet]
+            assert last_id_features[dets_index[idet]] is None
+            assert last_ad_id_features[dets_index[idet]] is None
+            last_id_features[dets_index[idet]] = track.smooth_feat
+            last_ad_id_features[dets_index[idet]] = track.smooth_feat_ad
+            tracks_ad.append((track, dets_index[idet]))
+            if track.state == TrackState.Tracked:
+                track.update(detections[idet], self.frame_id_)
+                activated_starcks.append(track)
+            else:
+                track.re_activate_(det, self.frame_id_, new_id=False)
+                refind_stracks.append(track)
+            dets_ids[dets_index[idet]] = track.track_id
+
+        ''' Step 3: Second association, with IOU'''
+        dets_index = [dets_index[i] for i in u_detection]
+        detections = [detections[i] for i in u_detection]
+        r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
+        dists = matching.iou_distance(r_tracked_stracks, detections)
+        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
+
+        for itracked, idet in matches:
+            track = r_tracked_stracks[itracked]
+            det = detections[idet]
+            assert last_id_features[dets_index[idet]] is None
+            assert last_ad_id_features[dets_index[idet]] is None
+            last_id_features[dets_index[idet]] = track.smooth_feat
+            last_ad_id_features[dets_index[idet]] = track.smooth_feat_ad
+            tracks_ad.append((track, dets_index[idet]))
+            if track.state == TrackState.Tracked:
+                track.update(det, self.frame_id_)
+                activated_starcks.append(track)
+            else:
+                track.re_activate_(det, self.frame_id_, new_id=False)
+                refind_stracks.append(track)
+            dets_ids[dets_index[idet]] = track.track_id
+
+        for it in u_track:
+            track = r_tracked_stracks[it]
+            if not track.state == TrackState.Lost:
+                track.mark_lost()
+                lost_stracks.append(track)
+
+        '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
+        dets_index = [dets_index[i] for i in u_detection]
+        detections = [detections[i] for i in u_detection]
+        dists = matching.iou_distance(unconfirmed, detections)
+        matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        for itracked, idet in matches:
+            assert last_id_features[dets_index[idet]] is None
+            assert last_ad_id_features[dets_index[idet]] is None
+            last_id_features[dets_index[idet]] = unconfirmed[itracked].smooth_feat
+            last_ad_id_features[dets_index[idet]] = unconfirmed[itracked].smooth_feat_ad
+            tracks_ad.append((unconfirmed[itracked], dets_index[idet]))
+            unconfirmed[itracked].update(detections[idet], self.frame_id_)
+            activated_starcks.append(unconfirmed[itracked])
+            dets_ids[dets_index[idet]] = unconfirmed[itracked].track_id
+        for it in u_unconfirmed:
+            track = unconfirmed[it]
+            track.mark_removed()
+            removed_stracks.append(track)
+
+        """ Step 4: Init new stracks"""
+        for inew in u_detection:
+            track = detections[inew]
+            if track.score < self.det_thresh:
+                continue
+            track.activate_(self.kalman_filter_, self.frame_id_, track_id=self_track_id_ori)
+            activated_starcks.append(track)
+            dets_ids[dets_index[inew]] = track.track_id
+        """ Step 5: Update state"""
+        for track in self.lost_stracks_:
+            if self.frame_id_ - track.end_frame > self.max_time_lost:
+                track.mark_removed()
+                removed_stracks.append(track)
+
+        # print('Ramained match {} s'.format(t4-t3))
+
+        self.tracked_stracks_ = [t for t in self.tracked_stracks_ if t.state == TrackState.Tracked]
+        self.tracked_stracks_ = joint_stracks(self.tracked_stracks_, activated_starcks)
+        self.tracked_stracks_ = joint_stracks(self.tracked_stracks_, refind_stracks)
+        self.lost_stracks_ = sub_stracks(self.lost_stracks_, self.tracked_stracks_)
+        self.lost_stracks_.extend(lost_stracks)
+        self.lost_stracks_ = sub_stracks(self.lost_stracks_, self.removed_stracks_)
+        self.removed_stracks_.extend(removed_stracks)
+        self.tracked_stracks_, self.lost_stracks_ = remove_duplicate_stracks(self.tracked_stracks_, self.lost_stracks_)
+        # get scores of lost tracks
+        output_stracks_ori = [track for track in self.tracked_stracks_ if track.is_activated]
+
+        logger.debug('===========Frame {}=========='.format(self.frame_id_))
+        logger.debug('Activated: {}'.format([track.track_id for track in activated_starcks]))
+        logger.debug('Refind: {}'.format([track.track_id for track in refind_stracks]))
+        logger.debug('Lost: {}'.format([track.track_id for track in lost_stracks]))
+        logger.debug('Removed: {}'.format([track.track_id for track in removed_stracks]))
+        attack = self.opt.attack
+        noise = None
+        suc = 0
+        if self.attack_sg_:
+            for attack_ind, track_id in enumerate(dets_ids):
+                if track_id == attack_id:
+                    if self.opt.attack_id > 0:
+                        if not hasattr(self, f'frames_{attack_id}'):
+                            setattr(self, f'frames_{attack_id}', 0)
+                        if getattr(self, f'frames_{attack_id}') < self.FRAME_THR:
+                            setattr(self, f'frames_{attack_id}', getattr(self, f'frames_{attack_id}') + 1)
+                            break
+                    fit = self.CheckFit(dets, id_feature, [attack_id], [attack_ind])
+                    ious = bbox_ious(np.ascontiguousarray(dets[:, :4], dtype=np.float64),
+                                     np.ascontiguousarray(dets[:, :4], dtype=np.float64))
+
+                    ious[range(len(dets)), range(len(dets))] = 0
+                    dis = bbox_dis(np.ascontiguousarray(dets[:, :4], dtype=np.float64),
+                                   np.ascontiguousarray(dets[:, :4], dtype=np.float64))
+                    dis[range(len(dets)), range(len(dets))] = np.inf
+                    target_ind = np.argmax(ious[attack_ind])
+                   # print(self.attack_iou_thr)
+                    if ious[attack_ind][target_ind] >= self.attack_iou_thr:
+                        if ious[attack_ind][target_ind] == 0:
+                            target_ind = np.argmin(dis[attack_ind])
+                        target_id = dets_ids[target_ind]
+                        if fit:
+                            noise, attack_iter, suc = self.attack_sg_rand(
+                                indsx,
+                                in_,
+                                im_blob,
+                                img0,
+                                id_features,
+                                dets,
+                                inds,
+                                remain_inds,
+                                last_info=self.ad_last_info,
+                                outputs_ori=output,
+                                attack_id=attack_id,
+                                attack_ind=attack_ind,
+                                target_id=target_id,
+                                target_ind=target_ind
                             )
                             self.attack_iou_thr = 0
                             if suc:
