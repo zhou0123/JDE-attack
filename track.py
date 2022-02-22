@@ -362,7 +362,7 @@ def eval_seq(opt, dataloader, data_type, result_filename,save_dir=None, show_ima
                             track_id=sg_track_ids[attack_id]
                         )
                     elif opt.method == 'rand':
-                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg(
+                        _, output_stracks_att, adImg, noise, l2_dis, suc = trackers_dic[attack_id].update_attack_sg_rand(
                             blob,
                             img0,
                             attack_id=attack_id,
@@ -684,23 +684,23 @@ if __name__ == '__main__':
     print(opt, end='\n\n')
  
     if  opt.test_mot15:
-        # seqs_str = '''ADL-Rundle-1
-        #               ADL-Rundle-3
-        #               AVG-TownCentre
-        #               ETH-Crossing
-        #               ETH-Jelmoli
-        #               ETH-Linthescher
-        #               KITTI-16
-        #               KITTI-19
-        #               PETS09-S2L2
-        #               TUD-Crossing
-        #               Venice-1
-        #             '''
-        seqs_str =  """PETS09-S2L2
-                    TUD-Crossing
-                    Venice-1
-                    """
-        data_root = '/home/zhouchengyu/Data/MOT/MOT15/test/'
+        seqs_str = '''ADL-Rundle-1
+                      ADL-Rundle-3
+                      AVG-TownCentre
+                      ETH-Crossing
+                      ETH-Jelmoli
+                      ETH-Linthescher
+                      KITTI-16
+                      KITTI-19
+                      PETS09-S2L2
+                      TUD-Crossing
+                      Venice-1
+                    '''
+        # seqs_str =  """PETS09-S2L2
+        #             TUD-Crossing
+        #             Venice-1
+        #             """
+        data_root = '/home/zhouchengyu/Data/MOT/MOT15/images/test/'
     elif opt.test_mot20:
         seqs_str = '''MOT20-04
                       MOT20-06
